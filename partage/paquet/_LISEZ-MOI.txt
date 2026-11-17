@@ -1,0 +1,186 @@
+ITINÉRAIRE — le trajet le plus court à travers ton journal de quêtes
+===================================================================
+(WoW Forever, version 1.9.0 du 17/11/2026 — github.com/Calgar50/itineraire-wow-forever)
+
+Ce paquet contient :
+  - Installer-Itineraire.cmd   (l'installation en un double-clic)
+  - Installer-Itineraire.ps1   (le programme qu'il lance, lisible avec le Bloc-notes)
+  - Itineraire\                (l'addon)
+  - ce fichier
+
+
+INSTALLER (OU METTRE À JOUR) EN UN DOUBLE-CLIC
+----------------------------------------------
+
+1. Quitte complètement WoW.
+2. Extrais ce zip où tu veux (par exemple sur le Bureau).
+3. Double-clique sur « Installer-Itineraire.cmd ».
+   Si Windows affiche un avertissement (« Windows a protégé votre ordinateur » ou
+   « Voulez-vous exécuter ce fichier ? ») : « Informations complémentaires » puis
+   « Exécuter quand même », ou « Exécuter » (le programme n'est pas signé ; tu peux
+   lire ce qu'il fait en ouvrant Installer-Itineraire.ps1 avec le Bloc-notes).
+4. À la fin, il demande « Activer la mise à jour automatique ? » : réponds o (oui).
+
+L'installateur :
+  - trouve tout seul le dossier de WoW Forever (sinon il te demande de le choisir) ;
+  - installe ou met à jour Itinéraire, Questie (+ QuestieDB) et Shortest Path Forever
+    (+ ForeverCore), en prenant la dernière version publiée sur GitHub ;
+  - vérifie chaque fichier téléchargé (empreinte SHA-256 publiée par GitHub) et refuse
+    tout fichier douteux ;
+  - ne remplace jamais une version plus récente que la sienne, et ne retélécharge rien
+    si tout est déjà à jour ;
+  - range les anciennes versions dans  _forever_\Interface\AddOns_sauvegardes
+    (il garde les 2 dernières).
+
+MISE À JOUR AUTOMATIQUE (si tu as répondu oui)
+  - Windows relance l'installateur tout seul, en silence : à l'ouverture de session puis
+    toutes les 4 heures, SEULEMENT quand l'ordinateur est inutilisé depuis 10 minutes et
+    que WoW est fermé (jamais de fenêtre pendant que tu joues).
+  - Les nouvelles versions comptent au lancement suivant du jeu ; Itinéraire te dit dans
+    le tchat ce qui a été mis à jour.
+  - Il ne se met jamais à jour lui-même : quand un nouvel installateur sort, Itinéraire te
+    prévient dans le jeu ; télécharge alors le nouveau paquet (lien en haut) et relance-le.
+  - Pour l'arrêter : relance l'installateur en tapant dans le dossier du paquet
+      powershell -ExecutionPolicy Bypass -File Installer-Itineraire.ps1 -DesactiverMajAuto
+  - Ce qu'il a fait : %LOCALAPPDATA%\Itineraire\maj.log
+
+(Avec CurseForge, ça marche aussi : CurseForge garde Questie et Shortest Path à jour,
+l'installateur ne touchera pas à une version plus récente.)
+
+Installation à la main, si tu préfères : copie le dossier « Itineraire » dans
+  World of Warcraft\_forever_\Interface\AddOns
+et installe Questie et Shortest Path Forever avec CurseForge.
+
+
+PREMIER LANCEMENT
+-----------------
+
+1. Sur l'écran de choix du personnage, bouton « AddOns » : vérifie que Itinéraire,
+   Questie, QuestieDB, Shortest Path Forever et ForeverCore sont cochés.
+2. Connecte-toi. Après quelques secondes, l'ASSISTANT pose 5 questions (le choix
+   conseillé est déjà sélectionné, il suffit de cliquer « C'est parti ! ») :
+     - seul ou en groupe ;
+     - finir la région où tu es d'abord, ou tout ton journal au plus court ;
+     - rendre les quêtes automatiquement (réglage de Questie) ;
+     - fenêtre légère (bandeau + 3 étapes) ou complète (8 étapes) ;
+     - régler la flèche de Shortest Path comme conseillé.
+   Pour le rouvrir plus tard : /iti assistant.
+3. Si tu avais un autre guide (RestedXP, Zygor, Guidelime, Adventure Guide…),
+   Itinéraire le désactive (ils se disputeraient la flèche) et te demande /reload.
+
+
+CE QUE TU VOIS
+--------------
+
+- LE BANDEAU, au-dessus de la flèche : ce qu'il y a à faire maintenant, en gros
+  (« 1. Tuer : Zhévra 3/8 »), le temps qu'il reste (celui de la flèche, qui connaît
+  le vrai chemin), le moyen de transport (« Voler vers Orgrimmar »), « Sur place »
+  quand tu y es, et l'étape d'après.
+  Clic : afficher / masquer la fenêtre. Clic droit : passer l'étape, suivre une quête.
+  Glisser : le déplacer.
+- LA FENÊTRE : les prochaines étapes numérotées (1, 2, 3…). Molette ou « Voir plus »
+  pour la suite. En haut : nombre d'étapes, durée en fourchette (« 50–65 min ») et
+  heure de fin. Le bloc « À savoir » se replie et se déplie d'un clic.
+  Boutons en haut à droite : E = équipement, ? = route des rendus, Q = quête à suivre,
+  R = recalculer, … = menu.
+- LA FLÈCHE et le trajet en points (minicarte, carte) : Shortest Path Forever.
+
+
+CE QUE FAIT ITINÉRAIRE
+----------------------
+
+- Il lit TON journal et calcule l'ordre le plus court : objectifs regroupés par
+  endroit, rendus en série (« tournées »), vols, bateaux et pierre de foyer compris.
+- Il n'écarte aucune quête de ton journal : une quête trop dure passe en fin de trajet
+  (« plus tard »), ou juste après le moment où tu auras le niveau (« dès le niv 18 »).
+- RÉGION D'ABORD : il finit la région où tu es, avec TOUTES ses quêtes (même celles
+  pas encore prises : étapes « Prendre N quêtes »), en tenant compte de la place dans
+  ton journal. Le reste est marqué « après la région ».
+- Il te propose des quêtes sur ton trajet et les suites de quêtes (jamais celles d'une
+  autre classe ou d'une autre race), prépare les donjons (prendre leurs quêtes avant
+  d'y aller), ajoute un arrêt « Réparer / Vendre » quand il faut, la visite au maître de
+  classe aux niveaux pairs, et te dit à quelle étape prendre la pierre de foyer.
+- ROUTE DES RENDUS : bouton « ? » (ou /iti rendus) = seulement rendre tes quêtes
+  terminées, dans le meilleur ordre. Re-clic pour revenir au trajet complet.
+
+PRÉCISION : il apprend TON rythme en jouant
+- le temps que tu mets pour chaque monstre et chaque objet (« Zhévra : 25 s »), et pour
+  chaque objectif de quête en cours ;
+- ta vitesse de déplacement, zone par zone (relief, routes) ;
+- l'écart habituel de tes temps : les durées sont affichées en fourchettes, qui se
+  resserrent au fil des mesures.
+Dans la bulle d'une étape : le chemin prévu (« à pied 1 min · vol vers Orgrimmar
+4 min »), l'heure d'arrivée et de fin. /iti rythme pour voir ce qu'il a appris.
+
+
+ÉQUIPEMENT
+----------
+
+- AU RENDU D'UNE QUÊTE avec plusieurs récompenses : la plus utile pour toi est encadrée
+  « Conseillé » et déjà choisie (tu cliques toi-même sur « Terminer la quête »). Si
+  aucune ne t'améliore, c'est la plus chère à revendre. Un message dit pourquoi.
+- LA FENÊTRE ÉQUIPEMENT (bouton E, ou /iti equipement) : les objets qui t'amélioreraient
+  à ton niveau, avec d'où ils viennent : récompense d'une quête (de ton journal ou à
+  prendre), vendeur, monstre ou boss qui le fait tomber, coffre.
+  « Y aller » : la source est ajoutée à ton trajet et la flèche t'y emmène ; l'étape
+  disparaît dès que l'objet est dans tes sacs. Clic droit : « Ne plus me le proposer ».
+- Sur le trajet, un rendu dont la récompense t'améliore est marqué « récompense pour
+  toi » (le détail est dans la bulle).
+- Les objets sont notés avec leurs vraies caractéristiques selon ton RÔLE (tank, mêlée,
+  distance, sorts, soins), deviné d'après tes talents : change-le dans /iti reglages >
+  Équipement si besoin. Les chances de butin ne sont pas connues (ni du jeu ni de Questie).
+
+
+JOUER À PLUSIEURS (2 à 5 joueurs)
+---------------------------------
+
+Le partage est désactivé par défaut. Pour jouer ensemble, CHAQUE joueur l'active
+(assistant, ou bouton … > « Partage de groupe », ou /iti groupe). Le chef de groupe
+devient le guide : il calcule UN trajet avec les quêtes de tout le monde (« pour toi »,
+« pour Alix », « pour tous ») ; les autres le voient dans leur fenêtre et leur
+flèche le suit. Sans nouvelles du guide (2 min 30), chacun reprend son trajet.
+En groupe, Itinéraire te prévient aussi si un équipier a une version plus récente.
+
+
+RÉGLAGES
+--------
+
+Bouton … > « Réglages (tout-en-un) » (ou /iti reglages), 4 onglets :
+  - Trajet : région d'abord, quêtes proposées, donjons, réparer, maître de classe,
+    pierre de foyer, partage de groupe, bandeau (taille, position), ton rythme ;
+  - Fenêtre : taille, transparence, nombre d'étapes, thème, mode compact… ;
+  - Équipement : conseil de récompense, présélection, ton rôle, l'analyse ;
+  - Questie & flèche : rendu / acceptation automatiques de Questie, les réglages utiles
+    de Shortest Path (bouton « Réglages conseillés »), et l'état des mises à jour.
+
+Dans la fenêtre : clic gauche sur une étape = la faire d'abord ; clic droit = suivre
+une quête ou passer l'étape ; bouton Q = choisir LA quête à suivre ; bouton R =
+recalculer (et reprendre le guidage s'il était en pause).
+
+Commandes :
+  /iti              afficher ou cacher la fenêtre
+  /iti equipement   la fenêtre Équipement
+  /iti reglages     tous les réglages
+  /iti assistant    les 5 questions du début
+  /iti bandeau      afficher ou cacher le bandeau
+  /iti rendus       route des rendus
+  /iti r            recalculer
+  /iti reset        réafficher les étapes passées
+  /iti rythme       ton rythme appris
+  /iti groupe       partage de groupe
+  /iti version      version et état des mises à jour
+  /iti rapport      rapport à copier en cas de souci
+  /iti etat         diagnostic rapide dans le tchat
+
+
+EN CAS DE PROBLÈME
+------------------
+
+Tape /iti rapport : une fenêtre s'ouvre avec tout ce qu'il faut (trajet, état de la
+flèche, équipement, mises à jour, erreurs d'Itinéraire et de Shortest Path), déjà
+sélectionné. Fais Ctrl+C, puis colle-le dans ton message à la personne qui t'a donné
+l'addon. Pas besoin de /reload.
+
+Si tu effaces le trajet dans Shortest Path ou si tu y lances un autre trajet,
+Itinéraire se met en pause (le bandeau l'indique) et reprend tout seul dès que plus
+rien ne guide (ou bouton R).

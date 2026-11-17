@@ -1,0 +1,7 @@
+<Bindings>
+	<Binding name="ITINERAIRE_TOGGLE" header="ITINERAIRE" category="ADDONS">Itineraire_Toggle()</Binding>
+	<Binding name="ITINERAIRE_RECALC" category="ADDONS">Itineraire_Recalc()</Binding>
+	<Binding name="ITINERAIRE_SKIP" category="ADDONS">Itineraire_SkipCurrent()</Binding>
+	<Binding name="ITINERAIRE_OPTIONS" category="ADDONS">Itineraire_Options()</Binding>
+	<Binding name="ITINERAIRE_TURNINS" category="ADDONS">Itineraire_Turnins()</Binding>
+</Bindings>

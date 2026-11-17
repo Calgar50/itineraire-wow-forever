@@ -1,0 +1,23 @@
+## Interface: 16001
+## Title: Itinéraire
+## Notes: Calcule le trajet le plus court à travers TON journal de quêtes (rendus, objectifs, donjons) et le donne à Shortest Path Forever. Conseille aussi ton équipement.
+## Version: 1.9.0
+## Dependencies: Questie
+## OptionalDeps: QuestieDB, ShortestPathForever, ForeverCore
+## SavedVariables: ItineraireDB
+## SavedVariablesPerCharacter: ItineraireCharDB
+## IconTexture: Interface\Icons\INV_Misc_Map_01
+## AddonCompartmentFunc: Itineraire_OnCompartmentClick
+
+Installateur.lua
+Solver.lua
+Geo.lua
+Data.lua
+Planner.lua
+Guide.lua
+UI.lua
+Options.lua
+Group.lua
+Gear.lua
+GearUI.lua
+Core.lua
