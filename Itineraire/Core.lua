@@ -892,7 +892,8 @@ function ns.CheckVersions()
 	if mine and db.newsSeen ~= mine and (previous or db.wizardDone == true) then
 		local versions = {}
 		for v in pairs(ns.NEWS) do
-			if ns.CompareVersions(v, mine) ~= 1 and (v == mine or (since and ns.CompareVersions(v, since) == 1)) then
+			-- (sans repère : joueur d'une version d'avant ce suivi, on montre tout ce qui existe)
+			if ns.CompareVersions(v, mine) ~= 1 and (v == mine or not since or ns.CompareVersions(v, since) == 1) then
 				versions[#versions + 1] = v
 			end
 		end

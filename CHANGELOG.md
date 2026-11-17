@@ -181,3 +181,6 @@ Notes techniques de chaque version (la plus récente en bas). Pour l'usage, voir
   - Leveldon ajouté aux guides désactivés ; message unique si Questdon est installé (sa flèche et sa pièce d'or).
   - Nouveautés : toutes les versions sautées sont affichées. Rapport : ligne « Données reprises ».
   - Tests : `fusion_test.lua` (vraies données), 20 tests dans `run_all.sh`.
+- v2.0.1 (17/11/2026) : fluidité de la recherche d'équipement en jeu (positions des vendeurs Questie gardées le temps
+  d'une recherche, positions des PNJ Finddon et listes d'entraîneurs par métier gardées) ; un joueur venant d'une
+  version d'avant le suivi des versions voit toutes les nouveautés (1.9.0 et 2.0.0).

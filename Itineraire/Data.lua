@@ -831,37 +831,53 @@ function Data.ExtNpcFriendly(npc)
 	return npc and (npc.side == "N" or not side or npc.side == side) or false
 end
 
--- Positions d'un PNJ de Finddon (« carte:xxyy… », dixièmes de % en base 36) en points du monde.
+-- Positions d'un PNJ de Finddon (« carte:xxyy… », dixièmes de % en base 36) en points du monde (gardées).
 function Data.ExtNpcPlaces(npc, limit)
+	if npc and npc.points then
+		if not limit or limit >= #npc.points then
+			return npc.points
+		end
+		local some = {}
+		for k = 1, limit do
+			some[k] = npc.points[k]
+		end
+		return some
+	end
 	local points = {}
 	if not (npc and npc.spots) then
 		return points
 	end
+	local max = limit or 60
 	for map, list in npc.spots:gmatch("(%d+):(%w+)") do
 		map = tonumber(map)
 		for i = 1, #list - 3, 4 do
 			local x, y = tonumber(list:sub(i, i + 1), 36), tonumber(list:sub(i + 2, i + 3), 36)
-			if map and x and y then
+			if map and x and y and #points < max then
 				x, y = x / 1000, y / 1000
 				local wx, wy, inst = Geo.World(map, x, y)
 				if wx then
 					points[#points + 1] = { map = map, x = x, y = y, wx = wx, wy = wy, inst = inst, npc = npc.id, name = npc.name }
-					if #points >= (limit or 60) then
-						return points
-					end
 				end
 			end
 		end
 	end
+	if max >= 60 and #points > 0 then
+		npc.points = points -- une seule fois par PNJ (pas tant que les cartes ne répondent pas)
+	end
 	return points
 end
 
--- Les PNJ d'un rôle de Finddon (« Pb » = entraîneur de forge…) amicaux pour toi.
+-- Les PNJ d'un rôle de Finddon (« Pb » = entraîneur de forge…) amicaux pour toi (gardés par rôle).
+local byRole = {}
 function Data.ExtNpcsWithRole(code)
 	if not pnj then
 		ParsePNJ()
 	end
+	if byRole[code] then
+		return byRole[code]
+	end
 	local out, needle = {}, " " .. code .. " "
+	byRole[code] = out
 	for _, npc in pairs(pnj) do
 		if npc.roles:find(needle, 1, true) and Data.ExtNpcFriendly(npc) then
 			out[#out + 1] = npc

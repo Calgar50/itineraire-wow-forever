@@ -831,6 +831,19 @@ function Gear.LogSet()
 	return set
 end
 
+-- Positions des PNJ de Questie, gardées le temps d'une recherche (un même vendeur sert pour beaucoup d'objets).
+local npcCache = {}
+local trainerCache = {} -- [code du métier] = positions des entraîneurs amicaux
+local function QuestiePlaces(npcId)
+	local c = npcCache[npcId]
+	if not c then
+		local points, npc, meta = Data.NpcPlaces(npcId, 60)
+		c = { points = points, npc = npc, meta = meta }
+		npcCache[npcId] = c
+	end
+	return c.points, c.npc, c.meta
+end
+
 -- Vendeurs (Questie, puis Finddon) d'un objet, les plus proches de toi d'abord (MAX_VENDORS au plus).
 local function VendorSources(id, questieVendors, out)
 	local found, seen = {}, {}
@@ -849,7 +862,7 @@ local function VendorSources(id, questieVendors, out)
 	end
 	for _, npcId in ipairs(type(questieVendors) == "table" and questieVendors or {}) do
 		if not seen[npcId] then
-			local points, npc = Data.NpcPlaces(npcId, 60)
+			local points, npc = QuestiePlaces(npcId)
 			if npc and npc.friendly ~= false and #points > 0 then
 				Add(npcId, npc.name, points)
 			end
@@ -902,7 +915,7 @@ local function DropSources(fields, out)
 	local droppers = type(fields.npcDrops) == "table" and fields.npcDrops or {}
 	if #droppers >= 1 and #droppers <= MAX_DROPPERS then
 		for _, npcId in ipairs(droppers) do
-			local points, npc, meta = Data.NpcPlaces(npcId, 60)
+			local points, npc, meta = QuestiePlaces(npcId)
 			if npc then
 				local dungeon = next(meta.dungeons)
 				if dungeon then
@@ -953,13 +966,18 @@ local function CraftSource(r, spell)
 			text = "à fabriquer : " .. prof .. " (tu connais la recette)" .. short }
 	end
 	if src == "t" then
-		local trainers = {}
 		local code = PROF_CODE[line]
-		for _, npc in ipairs(code and Data.ExtNpcsWithRole("P" .. code) or {}) do
-			for _, p in ipairs(Data.ExtNpcPlaces(npc, 4)) do
-				trainers[#trainers + 1] = p
+		local trainers = code and trainerCache[code]
+		if code and not trainers then
+			trainers = {}
+			for _, npc in ipairs(Data.ExtNpcsWithRole("P" .. code)) do
+				for _, p in ipairs(Data.ExtNpcPlaces(npc)) do
+					trainers[#trainers + 1] = p
+				end
 			end
+			trainerCache[code] = trainers
 		end
+		trainers = trainers or {}
 		return { kind = "recipe", spell = spell, prof = line, minSkill = minSkill, reagents = r[7], points = trainers,
 			text = prof .. " : recette chez ton entraîneur (compétence " .. minSkill .. ")" .. short }
 	end
@@ -1035,6 +1053,7 @@ local function Scan(yield)
 	local role = Gear.Role()
 	local cfg = Gear.Config()
 	Gear.ReadProfessions()
+	npcCache, trainerCache = {}, {}
 	local candidates, byId = {}, {}
 	local function Add(id, fields)
 		local c = byId[id]
