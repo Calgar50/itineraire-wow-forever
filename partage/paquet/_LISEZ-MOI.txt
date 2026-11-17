@@ -1,6 +1,6 @@
 ITINÉRAIRE — le trajet le plus court à travers ton journal de quêtes
 ===================================================================
-(WoW Forever, version 1.9.0 du 17/11/2026 — github.com/Calgar50/itineraire-wow-forever)
+(WoW Forever, version 2.0.0 du 17/11/2026 — github.com/Calgar50/itineraire-wow-forever)
 
 Ce paquet contient :
   - Installer-Itineraire.cmd   (l'installation en un double-clic)
@@ -116,19 +116,29 @@ Dans la bulle d'une étape : le chemin prévu (« à pied 1 min · vol vers Orgr
 ÉQUIPEMENT
 ----------
 
-- AU RENDU D'UNE QUÊTE avec plusieurs récompenses : la plus utile pour toi est encadrée
-  « Conseillé » et déjà choisie (tu cliques toi-même sur « Terminer la quête »). Si
-  aucune ne t'améliore, c'est la plus chère à revendre. Un message dit pourquoi.
-- LA FENÊTRE ÉQUIPEMENT (bouton E, ou /iti equipement) : les objets qui t'amélioreraient
-  à ton niveau, avec d'où ils viennent : récompense d'une quête (de ton journal ou à
-  prendre), vendeur, monstre ou boss qui le fait tomber, coffre.
-  « Y aller » : la source est ajoutée à ton trajet et la flèche t'y emmène ; l'étape
-  disparaît dès que l'objet est dans tes sacs. Clic droit : « Ne plus me le proposer ».
-- Sur le trajet, un rendu dont la récompense t'améliore est marqué « récompense pour
-  toi » (le détail est dans la bulle).
+- AU RENDU D'UNE QUÊTE avec plusieurs récompenses : la plus utile pour toi est entourée
+  d'un cadre vert « Conseillé » (si aucune ne t'améliore : la plus chère à revendre).
+  C'est toi qui la choisis et qui cliques : Itinéraire ne touche à rien dans la fenêtre.
+- DANS LA BULLE DE N'IMPORTE QUEL OBJET (sacs, butin, hôtel des ventes) : une ligne
+  « Itinéraire : +12 % pour toi » (en gris si c'est moins bien que le tien).
+- LA FENÊTRE ÉQUIPEMENT (bouton E, ou /iti equipement) :
+    - onglet Améliorations : les objets qui t'amélioreraient à ton niveau, et d'où ils
+      viennent : récompense de quête (de ton journal ou à prendre), vendeur, monstre,
+      coffre, boss de donjon ou de raid, objet que ton métier fabrique (forge…) ;
+    - onglet Donjons : quel donjon faire pour ton équipement (combien d'emplacements il
+      améliore, quels boss) ;
+    - « Y aller » : la source (ou l'entrée du donjon) est ajoutée à ton trajet et la
+      flèche t'y emmène ; l'étape disparaît dès que l'objet est dans tes sacs.
+      Clic droit sur un objet : « Ne plus me le proposer ».
+- MÉTIERS : ouvre une fois ta fenêtre de métier (forge…) pour qu'Itinéraire sache quelles
+  recettes tu connais ; sinon il te dit où les apprendre.
+- Sur le trajet, un rendu dont la récompense t'améliore est marqué « récompense pour toi ».
 - Les objets sont notés avec leurs vraies caractéristiques selon ton RÔLE (tank, mêlée,
   distance, sorts, soins), deviné d'après tes talents : change-le dans /iti reglages >
-  Équipement si besoin. Les chances de butin ne sont pas connues (ni du jeu ni de Questie).
+  Équipement si besoin. Les chances de butin ne sont connues de personne.
+
+QUÊTES QUE QUESTIE NE SAIT PAS PLACER : Itinéraire prend le repère que le jeu dessine
+sur ta carte (la bulle de l'étape dit « approximatif »), au lieu de les laisser de côté.
 
 
 JOUER À PLUSIEURS (2 à 5 joueurs)
@@ -149,7 +159,7 @@ Bouton … > « Réglages (tout-en-un) » (ou /iti reglages), 4 onglets :
   - Trajet : région d'abord, quêtes proposées, donjons, réparer, maître de classe,
     pierre de foyer, partage de groupe, bandeau (taille, position), ton rythme ;
   - Fenêtre : taille, transparence, nombre d'étapes, thème, mode compact… ;
-  - Équipement : conseil de récompense, présélection, ton rôle, l'analyse ;
+  - Équipement : conseil de récompense, ligne dans la bulle des objets, ton rôle, l'analyse ;
   - Questie & flèche : rendu / acceptation automatiques de Questie, les réglages utiles
     de Shortest Path (bouton « Réglages conseillés »), et l'état des mises à jour.
 
@@ -159,7 +169,7 @@ recalculer (et reprendre le guidage s'il était en pause).
 
 Commandes :
   /iti              afficher ou cacher la fenêtre
-  /iti equipement   la fenêtre Équipement
+  /iti equipement   la fenêtre Équipement (et « Quel donjon faire ? » dans le menu …)
   /iti reglages     tous les réglages
   /iti assistant    les 5 questions du début
   /iti bandeau      afficher ou cacher le bandeau
@@ -184,3 +194,12 @@ l'addon. Pas besoin de /reload.
 Si tu effaces le trajet dans Shortest Path ou si tu y lances un autre trajet,
 Itinéraire se met en pause (le bandeau l'indique) et reprend tout seul dès que plus
 rien ne guide (ou bouton R).
+
+
+D'OÙ VIENNENT LES DONNÉES
+------------------------
+
+Itinéraire lit Questie et Shortest Path Forever dans le jeu, et reprend les données
+d'autres addons Forever (Dropdon, DonData, Guildon Crafts, Finddon), d'All The Things,
+de CMaNGOS et « Data from ForeverDB.net (https://foreverdb.net) ». Merci à eux !
+Licence d'Itinéraire : GNU GPL v3 (Itineraire\LICENCE.txt, détails dans TIERS.txt).

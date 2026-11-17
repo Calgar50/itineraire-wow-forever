@@ -784,6 +784,324 @@ function Data.ObjectPlaces(id, limit)
 	return Places(object, id, limit)
 end
 
+-------------------------------------------------------------------------------
+-- Données reprises d'autres addons Forever (Donnees/*.lua, rangées dans ns.ext ; voir TIERS.txt)
+--   BUTINS (Dropdon/All The Things), OBJETS (idem), ENTREES (DonData), RECETTES (Guildon Crafts),
+--   PNJ et MARCHANDISES (Finddon). Les deux dernières sont de longues chaînes décodées à la demande.
+-------------------------------------------------------------------------------
+local function Ext()
+	return type(ns.ext) == "table" and ns.ext or {}
+end
+Data.Ext = Ext
+
+-- Camp du joueur : « A » ou « H » (un PNJ « N » sert tout le monde).
+function Data.Side()
+	local faction = UnitFactionGroup and UnitFactionGroup("player")
+	return faction == "Alliance" and "A" or faction == "Horde" and "H" or nil
+end
+
+local pnj -- [id] = { id, name, title, side, roles = " v r Pb ", level, spots }
+local function ParsePNJ()
+	pnj = {}
+	local data = Ext().PNJ
+	if type(data) ~= "string" then
+		return
+	end
+	for line in data:gmatch("[^\n]+") do
+		local id, name, title, side, roles, level, spots =
+			line:match("^(%d+)%^([^%^]*)%^([^%^]*)%^(%a)%^([^%^]*)%^([^%^]*)%^([^%^]+)")
+		id = tonumber(id)
+		if id and id < 9000000 then -- (au-delà : feux de cuisine, boîtes aux lettres, enclumes… pas des PNJ)
+			pnj[id] = { id = id, name = name, title = title, side = side, level = tonumber(level), spots = spots,
+				roles = " " .. (roles:gsub("([CP]?[%l%d])", "%1 ")) }
+		end
+	end
+	Ext().PNJ = nil -- la table remplace la chaîne
+end
+
+function Data.ExtNpc(id)
+	if not pnj then
+		ParsePNJ()
+	end
+	return pnj[id]
+end
+
+function Data.ExtNpcFriendly(npc)
+	local side = Data.Side()
+	return npc and (npc.side == "N" or not side or npc.side == side) or false
+end
+
+-- Positions d'un PNJ de Finddon (« carte:xxyy… », dixièmes de % en base 36) en points du monde.
+function Data.ExtNpcPlaces(npc, limit)
+	local points = {}
+	if not (npc and npc.spots) then
+		return points
+	end
+	for map, list in npc.spots:gmatch("(%d+):(%w+)") do
+		map = tonumber(map)
+		for i = 1, #list - 3, 4 do
+			local x, y = tonumber(list:sub(i, i + 1), 36), tonumber(list:sub(i + 2, i + 3), 36)
+			if map and x and y then
+				x, y = x / 1000, y / 1000
+				local wx, wy, inst = Geo.World(map, x, y)
+				if wx then
+					points[#points + 1] = { map = map, x = x, y = y, wx = wx, wy = wy, inst = inst, npc = npc.id, name = npc.name }
+					if #points >= (limit or 60) then
+						return points
+					end
+				end
+			end
+		end
+	end
+	return points
+end
+
+-- Les PNJ d'un rôle de Finddon (« Pb » = entraîneur de forge…) amicaux pour toi.
+function Data.ExtNpcsWithRole(code)
+	if not pnj then
+		ParsePNJ()
+	end
+	local out, needle = {}, " " .. code .. " "
+	for _, npc in pairs(pnj) do
+		if npc.roles:find(needle, 1, true) and Data.ExtNpcFriendly(npc) then
+			out[#out + 1] = npc
+		end
+	end
+	return out
+end
+
+local goods -- [itemID] = { npcID, … }
+local function ParseGoods()
+	goods = {}
+	local data = Ext().MARCHANDISES
+	if type(data) ~= "string" then
+		return
+	end
+	for line in data:gmatch("[^\n]+") do
+		local id, _, _, free, limited = line:match("^(%d+)%^([^%^]+)%^(%l?)%^(%w*)%^(%w*)$")
+		id = tonumber(id)
+		if id then
+			local list = {}
+			for _, s in ipairs({ free, limited }) do
+				for i = 1, #s - 3, 4 do
+					local npc = tonumber(s:sub(i, i + 3), 36)
+					if npc then
+						list[#list + 1] = npc
+					end
+				end
+			end
+			goods[id] = list
+		end
+	end
+	Ext().MARCHANDISES = nil
+end
+
+-- Vendeurs d'un objet d'après Finddon (ids de PNJ), ou nil.
+function Data.ExtVendors(itemID)
+	if not goods then
+		ParseGoods()
+	end
+	return goods[itemID]
+end
+
+function Data.ExtGoodsIds()
+	if not goods then
+		ParseGoods()
+	end
+	return goods
+end
+
+-- Nom / qualité / niveau d'objet / niveau requis de secours (anglais) quand le serveur ne répond pas.
+function Data.ItemFallback(id)
+	local s = Ext().OBJETS and Ext().OBJETS[id]
+	if type(s) ~= "string" then
+		return nil
+	end
+	local name, quality, ilvl, req = s:match("^([^|]*)|?(%d*)|?(%d*)|?(%d*)")
+	return { name = name, quality = tonumber(quality), ilvl = tonumber(ilvl), req = tonumber(req) }
+end
+
+-- Donjons et raids (Dropdon) : { id, name (langue du jeu si possible), min, max, raid, bosses, entrance }.
+local dungeonList
+local function Normal(name)
+	return tostring(name or ""):lower():gsub("^the ", ""):gsub("^l[ae'] ?", ""):gsub("[^%w]", "")
+end
+
+local function QuestieEntranceByName(name)
+	local all = M and Call(M.Zone.GetDungeons, M.Zone)
+	if type(all) ~= "table" then
+		return nil
+	end
+	local want = Normal(name)
+	for areaId, d in pairs(all) do
+		if type(d) == "table" and Normal(d[1]) == want then
+			return Data.DungeonEntrance(areaId), areaId
+		end
+	end
+	return nil
+end
+
+function Data.Dungeons()
+	if dungeonList then
+		return dungeonList
+	end
+	local list = {}
+	local entrances = Ext().ENTREES or {}
+	for id, d in pairs(Ext().BUTINS or {}) do
+		if type(d) == "table" then
+			local name = d.name
+			local info = d.map and C_Map and C_Map.GetMapInfo and Call(C_Map.GetMapInfo, d.map)
+			if type(info) == "table" and type(info.name) == "string" and info.name ~= "" then
+				name = info.name
+			end
+			local entrance
+			local e = type(entrances[id]) == "table" and entrances[id][1]
+			if type(e) == "table" and e[1] and e[2] and e[3] then
+				local x, y = e[2] / 100, e[3] / 100
+				local wx, wy, inst = Geo.World(e[1], x, y)
+				if wx then
+					entrance = { map = e[1], x = x, y = y, wx = wx, wy = wy, inst = inst }
+				end
+			end
+			local areaId
+			if not entrance then
+				entrance, areaId = QuestieEntranceByName(d.name)
+			end
+			list[#list + 1] = { id = id, name = name or ("Donjon " .. id), english = d.name, min = d.min or 1, max = d.max or 60,
+				raid = d.raid and true or false, bosses = type(d.bosses) == "table" and d.bosses or {}, entrance = entrance,
+				areaId = areaId }
+		end
+	end
+	table.sort(list, function(a, b)
+		if a.min ~= b.min then
+			return a.min < b.min
+		end
+		return a.id < b.id
+	end)
+	dungeonList = list
+	return list
+end
+
+-- Nom d'un boss : celui de Questie (dans la langue du jeu) quand il le connaît, sinon celui des données.
+function Data.BossName(boss)
+	if type(boss) ~= "table" then
+		return "?"
+	end
+	if not boss.enc and boss.id and M then
+		local npc = Call(M.DB.GetNPC, M.DB, boss.id)
+		if npc and type(npc.name) == "string" and npc.name ~= "" then
+			return npc.name
+		end
+	end
+	return (tostring(boss.name or "?"):gsub(" <.*>$", ""))
+end
+
+-------------------------------------------------------------------------------
+-- Repère du jeu pour une quête du journal (quand Questie ne sait pas où aller)
+--   1. le point de quête que le jeu dessine sur la carte (C_QuestLog.GetQuestsOnMap, carte du joueur et ses parents) ;
+--   2. sa prochaine étape (C_QuestLog.GetNextWaypoint) ;
+--   3. DonData, s'il est installé (DonDataAPI : points d'objectifs, lieu du rendu).
+-- Lecture seule ; tout est protégé (valeurs « secrètes » de Forever en combat).
+-------------------------------------------------------------------------------
+local poi, poiAt = {}, -100
+
+local function Num(v)
+	return type(v) == "number" and v or nil
+end
+
+local function ReadPOI()
+	poi, poiAt = {}, GetTime()
+	local fn = C_QuestLog and C_QuestLog.GetQuestsOnMap
+	local map = C_Map and C_Map.GetBestMapForUnit and Call(C_Map.GetBestMapForUnit, "player")
+	if type(fn) ~= "function" or not map then
+		return
+	end
+	for _ = 1, 4 do
+		local list = Call(fn, map)
+		for _, e in ipairs(type(list) == "table" and list or {}) do
+			local ok, id, x, y, indicator = pcall(function()
+				return e.questID, e.x, e.y, e.isMapIndicatorQuest
+			end)
+			id, x, y = ok and Num(id), ok and Num(x), ok and Num(y)
+			if id and x and y and not indicator and x > 0 and x <= 1 and y > 0 and y <= 1 and not poi[id] then
+				poi[id] = { map = map, x = x, y = y }
+			end
+		end
+		-- puis la carte parente (jusqu'au continent : ses points couvrent les quêtes des autres zones)
+		local info = C_Map.GetMapInfo and Call(C_Map.GetMapInfo, map)
+		local parent = type(info) == "table" and Num(info.parentMapID) or nil
+		local kind = type(info) == "table" and Num(info.mapType) or nil
+		if not parent or parent <= 0 or (kind and kind <= 2) then
+			break
+		end
+		map = parent
+	end
+end
+
+local function Point(map, x, y, source)
+	if not (map and x and y) then
+		return nil
+	end
+	local wx, wy, inst = Geo.World(map, x, y)
+	if not wx then
+		return nil
+	end
+	return { map = map, x = x, y = y, wx = wx, wy = wy, inst = inst, hint = source }
+end
+
+-- Où rendre une quête PAS ENCORE finie quand Questie l'ignore : seulement DonData (le repère du jeu montre
+-- les objectifs tant que la quête n'est pas finie).
+function Data.TurnInGuess(questID)
+	local api = rawget(_G, "DonDataAPI")
+	if type(api) ~= "table" or type(api.TurnInPoint) ~= "function" then
+		return nil
+	end
+	local m, x, y = Call(api.TurnInPoint, questID)
+	return Num(m) and Point(m, Num(x), Num(y), "DonData") or nil
+end
+
+-- `turnin` : la quête est finie (on cherche où la rendre). Rend un point (avec .hint = la source) ou nil.
+function Data.QuestHint(questID, turnin)
+	if GetTime() - poiAt > 5 then
+		ReadPOI()
+	end
+	local p = poi[questID]
+	if p then
+		local point = Point(p.map, p.x, p.y, "jeu")
+		if point then
+			return point
+		end
+	end
+	local waypoint = C_QuestLog and C_QuestLog.GetNextWaypoint
+	if type(waypoint) == "function" then
+		local m, x, y = Call(waypoint, questID)
+		if Num(m) and Num(x) and Num(y) and not (x == 0 and y == 0) then
+			local point = Point(m, x, y, "jeu")
+			if point then
+				return point
+			end
+		end
+	end
+	local api = rawget(_G, "DonDataAPI")
+	if type(api) == "table" then
+		if turnin and type(api.TurnInPoint) == "function" then
+			local m, x, y = Call(api.TurnInPoint, questID)
+			local point = Num(m) and Point(m, Num(x), Num(y), "DonData")
+			if point then
+				return point
+			end
+		elseif not turnin and type(api.ObjectivePoints) == "function" then
+			local list = Call(api.ObjectivePoints, questID)
+			local e = type(list) == "table" and list[1]
+			local point = type(e) == "table" and Point(Num(e.mapID), Num(e.x), Num(e.y), "DonData")
+			if point then
+				return point
+			end
+		end
+	end
+	return nil
+end
+
 -- Usure de l'équipement (plus bas % d'un objet, moyenne) et places libres dans les sacs.
 function Data.GearState()
 	local low, total, count = 1, 0, 0

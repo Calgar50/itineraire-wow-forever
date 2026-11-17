@@ -61,7 +61,7 @@ $Sources = @(
     @{ Repo = 'cjber/shortest-path-forever'; Pattern = '^ShortestPathForever-v[0-9][0-9A-Za-z.+-]*-forever\.zip$'; Addons = @('ShortestPathForever', 'ForeverCore'); Ignore = @() }
 )
 $ItiSource = @{ Repo = $ItiRepo; Pattern = '^Itineraire-v[0-9]+(\.[0-9]+)*\.zip$'; Addons = @('Itineraire'); Ignore = @() }
-$OtherGuides = @('RXPGuides', 'AdventureGuideForever', 'Guidelime', 'ZygorGuidesViewer', 'ZygorGuidesViewerClassic', 'Polestar', 'QuestieTrace')
+$OtherGuides = @('RXPGuides', 'AdventureGuideForever', 'Guidelime', 'ZygorGuidesViewer', 'ZygorGuidesViewerClassic', 'Polestar', 'QuestieTrace', 'Leveldon')
 
 $TaskName = 'Itineraire - mise a jour automatique'
 $AutoDir = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Itineraire'

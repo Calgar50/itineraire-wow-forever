@@ -96,7 +96,7 @@ for id in pairs(DBITEMS) do DB.ItemPointers[id] = true end
 function DB.QueryItemSingle(id, key) return DBITEMS[id] and DBITEMS[id][key] end
 
 -- Versions : venant de la 1.8.1, Questie mis à jour ; installateur plus ancien que celui attendu.
-VERSIONS = { Itineraire = "1.9.0", Questie = "12.10.0", QuestieDB = "1.1.1", ShortestPathForever = "1.39.0", ForeverCore = "1.12.1" }
+VERSIONS = { Itineraire = "2.0.0", Questie = "12.10.0", QuestieDB = "1.1.1", ShortestPathForever = "1.39.0", ForeverCore = "1.12.1" }
 C_AddOns.GetAddOnMetadata = function(name, field) return field == "Version" and VERSIONS[name] or nil end
 ItineraireDB = { wizardDone = true, versions = { Itineraire = "1.8.1", Questie = "12.9.0", QuestieDB = "1.1.1" } }
 ItineraireInstallateur = { version = 1, auto = true, verifie = "2026-11-17 10:00" }
@@ -116,10 +116,10 @@ end
 
 -- 1. Versions, nouveautés, installateur.
 assert(Printed("Questie 12%.9%.0 %-> 12%.10%.0"), "mise à jour de Questie non signalée")
-assert(Printed("Itinéraire 1%.8%.1 %-> 1%.9%.0"), "mise à jour d'Itinéraire non signalée")
-assert(Printed("nouveautés de la version 1%.9%.0"), "nouveautés non affichées")
+assert(Printed("Itinéraire 1%.8%.1 %-> 2%.0%.0"), "mise à jour d'Itinéraire non signalée")
+assert(Printed("nouveautés de la version 1%.9%.0") and Printed("nouveautés de la version 2%.0%.0"), "nouveautés sautées non affichées")
 assert(Printed("nouvel installateur"), "installateur trop ancien non signalé")
-assert(ns.db.newsSeen == "1.9.0" and ns.db.versions.Questie == "12.10.0")
+assert(ns.db.newsSeen == "2.0.0" and ns.db.versions.Questie == "12.10.0")
 
 -- 2. Rôle et notes.
 local role, why = G.Role()
@@ -133,25 +133,52 @@ assert(why6 and why6:find("deux mains"), "tank : pas d'arme à deux mains (" .. 
 local head = G.Evaluate(7003)
 assert(head and head.empty and G.GainText(head) == "emplacement vide")
 
--- 3. Récompense conseillée au rendu.
+-- 3. Récompense conseillée au rendu : un cadre par-dessus le bon bouton « choix », et RIEN d'appelé chez Blizzard.
 local buttons = {}
-for i = 1, 3 do buttons[i] = CreateFrame("Button") end
-QuestInfoRewardsFrame = { RewardButtons = buttons }
-SELECTED = nil
-function QuestInfoItem_OnClick(b) SELECTED = b end
+-- (le jeu range aussi les récompenses fixes dans RewardButtons : un bouton « reward » en tête)
+local fixed = CreateFrame("Button")
+fixed.type = "reward"
+fixed.GetID = function() return 1 end
+for i = 1, 3 do
+	buttons[i] = CreateFrame("Button")
+	buttons[i].type = "choice"
+	buttons[i].GetID = function() return i end
+end
+QuestInfoRewardsFrame = { RewardButtons = { fixed, buttons[1], buttons[2], buttons[3] } }
+CALLED = nil
+function QuestInfoItem_OnClick() CALLED = true end
 CHOICES = { 7011, 7001, 7004 }
 function GetNumQuestChoices() return #CHOICES end
 function GetQuestItemLink(_, i) return link(CHOICES[i]) end
 function GetQuestItemInfo(_, i) return ITEMS[CHOICES[i]].name, "icon", 1, 2, true end
 Fire("QUEST_COMPLETE")
-assert(SELECTED == buttons[2], "la meilleure récompense (le bouclier) n'est pas présélectionnée")
+Advance(0.2)
+assert(ItineraireRewardMark and ItineraireRewardMark.button == buttons[2], "le cadre n'est pas sur le bouclier")
+assert(ItineraireRewardMark:IsShown())
+assert(not CALLED, "Itinéraire ne doit rien appeler dans la fenêtre de quête (contamination)")
 assert(Printed("récompense conseillée : .*Bouclier du gardien"), "message de récompense absent")
 -- Aucune amélioration : la plus chère à revendre.
 CHOICES = { 7012, 7004 }
-SELECTED = nil
 Fire("QUEST_COMPLETE")
-assert(SELECTED == buttons[2] and Printed("aucune récompense ne t'améliore : prends .*Baguette"), "repli sur le prix de revente")
+Advance(0.2)
+assert(ItineraireRewardMark.button == buttons[2] and Printed("aucune récompense ne t'améliore : prends .*Baguette"),
+	"repli sur le prix de revente")
+-- Objets pas encore chargés : on attend leurs données, puis on conseille.
+CHOICES = { 7013, 7002 }
+LOADED_LATER = { [7002] = true }
+local realInfo = C_Item.GetItemInfo
+C_Item.GetItemInfo = function(x) if LOADED_LATER[tonumber(tostring(x):match("item:(%d+)") or x)] then return nil end return realInfo(x) end
+PRINTED = {}
+Fire("QUEST_COMPLETE")
+Advance(0.2)
+assert(not Printed("récompense conseillée"), "conseil donné avant d'avoir les objets")
+LOADED_LATER = {}
+Fire("ITEM_DATA_LOAD_RESULT", 7002, true)
+Advance(0.5)
+assert(Printed("récompense conseillée : .*Haubert"), "pas de conseil une fois l'objet chargé")
+C_Item.GetItemInfo = realInfo
 Fire("QUEST_FINISHED")
+assert(not ItineraireRewardMark:IsShown(), "cadre encore là après la fermeture")
 
 -- 4. Recherche des améliorations dans la base.
 assert(G.Rescan(), "la recherche ne démarre pas")

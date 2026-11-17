@@ -30,6 +30,13 @@ ns.HOME = "github.com/Calgar50/itineraire-wow-forever"
 ns.INSTALLER_WANTED = 2
 -- Nouveautés affichées une fois après une mise à jour (pas de flèches Unicode : police du jeu incertaine).
 ns.NEWS = {
+	["2.0.0"] = {
+		"Fusion des données des addons Forever : butins de TOUS les donjons et raids (boss par boss), recettes de tes métiers, vendeurs de Forever.",
+		"Équipement, onglet Donjons : quel donjon faire pour ton équipement, et « Y aller » vers son entrée.",
+		"Bulle des objets : « Itinéraire : +12 % pour toi » partout (sacs, butin, hôtel des ventes).",
+		"Note des objets revue (poids par classe, armure en vie effective, armes) et récompense de quête marquée sans rien toucher à la fenêtre du jeu.",
+		"Quêtes que Questie ne sait pas placer : Itinéraire prend le repère du jeu (et DonData s'il est installé).",
+	},
 	["1.9.0"] = {
 		"Récompenses de quête : la meilleure pour ton rôle est mise en avant (et présélectionnée) au rendu.",
 		"Équipement (/iti equipement) : tes améliorations à ton niveau, d'où elles viennent, et « Y aller » pour les ajouter au trajet.",
@@ -743,7 +750,7 @@ end
 local CONFLICTS = {
 	"RXPGuides", "AdventureGuideForever", "Polestar", "Guidelime", "ForeverWisp", "QuestTrail",
 	"ForeverRoute", "ForeverRoutes", "AzerothPilotReloaded", "ZygorGuidesViewer", "ZygorGuidesViewerClassic",
-	"ZygorGuidesViewerForever", "Journey", "QuestieTrace",
+	"ZygorGuidesViewerForever", "Journey", "QuestieTrace", "Leveldon",
 }
 local conflicts = {}
 local function Loaded(name)
@@ -765,6 +772,12 @@ local function DisableConflicts()
 	end
 	if #conflicts > 0 then
 		ns.Print("désactivé : |cffff9933" .. table.concat(conflicts, ", ") .. "|r (ils guidaient aussi). Tape |cffffff00/reload|r pour finir.")
+	end
+	-- Questdon garde sa liste de quêtes (utile) mais a sa propre flèche et marque aussi les récompenses : on prévient.
+	if Loaded("Questdon") and not ns.db.questdonNoticed then
+		ns.db.questdonNoticed = true
+		ns.Print("Questdon est installé : sa flèche s'ajoute à celle de Shortest Path (|cffffff00/qd arrow|r pour la masquer),"
+			.. " et il marque aussi les récompenses de quête (pièce d'or) : le cadre vert « Conseillé » est celui d'Itinéraire.")
 	end
 end
 
@@ -873,11 +886,24 @@ function ns.CheckVersions()
 	if #changes > 0 then
 		ns.Print("mis à jour depuis ta dernière session : " .. table.concat(changes, ", ") .. ".")
 	end
-	-- Nouveautés d'Itinéraire : une fois par version (pas à la toute première installation).
-	if mine and db.newsSeen ~= mine and ns.NEWS[mine] and (previous or db.wizardDone == true) then
-		ns.Print("nouveautés de la version " .. mine .. " :")
-		for _, line in ipairs(ns.NEWS[mine]) do
-			ns.Print("  - " .. line)
+	-- Nouveautés d'Itinéraire : une fois par version, toutes celles sautées depuis la dernière vue (pas à la toute
+	-- première installation).
+	local since = db.newsSeen or previous
+	if mine and db.newsSeen ~= mine and (previous or db.wizardDone == true) then
+		local versions = {}
+		for v in pairs(ns.NEWS) do
+			if ns.CompareVersions(v, mine) ~= 1 and (v == mine or (since and ns.CompareVersions(v, since) == 1)) then
+				versions[#versions + 1] = v
+			end
+		end
+		table.sort(versions, function(a, b)
+			return ns.CompareVersions(a, b) == 1
+		end)
+		for _, v in ipairs(versions) do
+			ns.Print("nouveautés de la version " .. v .. " :")
+			for _, line in ipairs(ns.NEWS[v]) do
+				ns.Print("  - " .. line)
+			end
 		end
 	end
 	db.newsSeen = mine or db.newsSeen
@@ -918,6 +944,8 @@ local function WaitForQuestie()
 			if not okV then
 				OnError("versions : " .. tostring(errV))
 			end
+			-- Ligne « Itinéraire : +12 % pour toi » dans la bulle des objets.
+			pcall(ns.Gear.HookTooltips)
 			-- Recherche des améliorations d'équipement : après le 1er calcul du trajet (rien ne presse).
 			C_Timer.After(25, function()
 				pcall(ns.Gear.Rescan)
@@ -995,6 +1023,10 @@ events:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
 		self:RegisterEvent("QUEST_COMPLETE")
 		self:RegisterEvent("QUEST_FINISHED")
 		self:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+		for _, e in ipairs({ "ITEM_DATA_LOAD_RESULT", "GET_ITEM_INFO_RECEIVED", "TRADE_SKILL_SHOW",
+			"TRADE_SKILL_LIST_UPDATE", "SKILL_LINES_CHANGED" }) do
+			pcall(self.RegisterEvent, self, e) -- (un événement inconnu de cette version du jeu ne bloque rien)
+		end
 		-- 1re fois : on suppose tes techniques à jour (dernier niveau pair).
 		if not ns.char.trainedAt then
 			local level = UnitLevel("player") or 1
@@ -1023,7 +1055,21 @@ events:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
 			OnError("récompense : " .. tostring(err))
 		end
 	elseif event == "QUEST_FINISHED" then
-		pcall(ns.Gear.HideMark)
+		pcall(ns.Gear.OnQuestFinished)
+	elseif event == "ITEM_DATA_LOAD_RESULT" or event == "GET_ITEM_INFO_RECEIVED" then
+		pcall(ns.Gear.OnItemData) -- (seulement si la fenêtre de récompenses attend un objet)
+	elseif event == "TRADE_SKILL_SHOW" or event == "TRADE_SKILL_LIST_UPDATE" or event == "SKILL_LINES_CHANGED" then
+		-- Ta fenêtre de métier : recettes connues (et compétences), pour les objets à fabriquer.
+		if not ns.session.tradeTimer then
+			ns.session.tradeTimer = true
+			C_Timer.After(1, function()
+				ns.session.tradeTimer = nil
+				local ok, learned = pcall(ns.Gear.ReadRecipes)
+				if ok and learned and ns.Gear.results then
+					pcall(ns.Gear.Rescan)
+				end
+			end)
+		end
 	elseif event == "PLAYER_EQUIPMENT_CHANGED" then
 		-- (plusieurs objets changés d'affilée : une seule comparaison, un peu après)
 		if not ns.session.gearTimer then
@@ -1205,6 +1251,16 @@ function ns.ReportText()
 	Add("Addons : Questie " .. Meta("Questie") .. " · QuestieDB " .. Meta("QuestieDB") .. " · Shortest Path "
 		.. Meta("ShortestPathForever") .. " · ForeverCore " .. Meta("ForeverCore"))
 	Add("Mises à jour : " .. ns.InstallerText())
+	local ext = ns.Data.Ext()
+	local nRecipes = 0
+	for _ in pairs(ext.RECETTES or {}) do
+		nRecipes = nRecipes + 1
+	end
+	local okD, dungeons = pcall(ns.Data.Dungeons)
+	Add(string.format("Données reprises : %d donjons/raids · %d recettes · PNJ %s · marchandises %s · DonData %s",
+		okD and #dungeons or 0, nRecipes, ext.PNJ_NB and tostring(ext.PNJ_NB) or "?",
+		ext.MARCHANDISES_NB and tostring(ext.MARCHANDISES_NB) or "?",
+		type(rawget(_G, "DonDataAPI")) == "table" and "présent" or "absent"))
 	local okGear, gearLine = pcall(ns.Gear.ReportLine)
 	Add(okGear and gearLine or ("Équipement : " .. (ns.gearMissing and "fichiers absents (relancer WoW)" or tostring(gearLine))))
 	local api = ns.Geo.SPApi()

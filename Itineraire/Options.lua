@@ -533,12 +533,12 @@ local function BuildGearPage(page)
 		end, function(v)
 			ns.Gear.Config().rewardAdvice = v
 		end, 16, -24)
-	CheckFn(page, "La présélectionner (tu cliques toi-même sur « Terminer »)",
-		"La récompense conseillée est déjà choisie dans la fenêtre de la quête ; rien n'est validé à ta place.",
+	CheckFn(page, "Ligne « Itinéraire : +12 % pour toi » dans la bulle des objets",
+		"Partout : sacs, butin, hôtel des ventes, récompenses. Vert = amélioration pour ton rôle, gris = moins bien que le tien.",
 		function()
-			return ns.Gear.Config().preselect ~= false
+			return ns.Gear.Config().tooltip ~= false
 		end, function(v)
-			ns.Gear.Config().preselect = v
+			ns.Gear.Config().tooltip = v
 		end, 16, -48)
 
 	Header(page, "Ton rôle (pour noter les objets)", -82)
@@ -548,25 +548,31 @@ local function BuildGearPage(page)
 		return "Rôle utilisé : " .. (ns.Gear.ROLE_LABEL[role] or role) .. " (" .. why .. "). Auto = d'après l'arbre de talents le plus rempli."
 	end)
 
-	Header(page, "Améliorations (récompenses, vendeurs, butins)", -170)
+	Header(page, "Améliorations (récompenses, vendeurs, butins, donjons, métiers)", -170)
 	LiveText(page, -188, function()
 		return ns.Gear.ReportLine()
 	end)
-	local open = Button(page, "Ouvrir la fenêtre Équipement", 200, function()
-		ns.GearUI.Toggle(true)
+	local open = Button(page, "Fenêtre Équipement", 150, function()
+		ns.GearUI.Toggle(true, "items")
 	end)
-	open:SetPoint("TOPLEFT", 14, -222)
-	local rescan = Button(page, "Relancer l'analyse", 140, function()
+	open:SetPoint("TOPLEFT", 14, -232)
+	local dungeons = Button(page, "Quel donjon faire ?", 140, function()
+		ns.GearUI.Toggle(true, "dungeons")
+	end)
+	dungeons:SetPoint("LEFT", open, "RIGHT", 6, 0)
+	local rescan = Button(page, "Relancer", 80, function()
 		ns.Gear.ResetWorn()
 		ns.Gear.Rescan()
 		Options.Refresh()
 	end)
-	rescan:SetPoint("LEFT", open, "RIGHT", 6, 0)
-	Note(page, "Chaque objet est noté avec ses vraies caractéristiques (celles du jeu, à jour) selon ton rôle, puis comparé à ce "
-		.. "que tu portes. Les sources viennent de la base de Questie : récompenses de quêtes (seulement celles que ta classe "
-		.. "et ta race peuvent faire), vendeurs, PNJ et coffres qui le font tomber. Les taux de butin ne sont pas connus.\n\n"
-		.. "Dans la fenêtre Équipement, « Y aller » ajoute la source au trajet (la flèche t'y emmène) ; l'objectif disparaît "
-		.. "dès que l'objet est dans tes sacs. /iti equipement l'ouvre aussi.", -262)
+	rescan:SetPoint("LEFT", dungeons, "RIGHT", 6, 0)
+	Note(page, "Chaque objet est noté avec ses vraies caractéristiques (celles du jeu) selon ton rôle, puis comparé à ce que "
+		.. "tu portes. Sources : récompenses de quêtes (seulement celles que ta classe et ta race peuvent faire), vendeurs, "
+		.. "PNJ, coffres, boss de TOUS les donjons et raids, et ce que tes métiers fabriquent (ouvre une fois ta fenêtre de "
+		.. "métier pour qu'il sache tes recettes). Les taux de butin ne sont pas connus.\n\n"
+		.. "« Y aller » ajoute la source au trajet (la flèche t'y emmène) ; l'objectif disparaît dès que l'objet est dans tes sacs.\n\n"
+		.. "Données reprises de Dropdon, DonData, Guildon Crafts, Finddon (DonCoohd), All The Things, CMaNGOS et "
+		.. "« Data from ForeverDB.net (https://foreverdb.net) » : licences dans TIERS.txt. Itinéraire est sous licence GPL v3.", -268)
 end
 
 local PAGES = {

@@ -390,9 +390,15 @@ local function OptionsMenu()
 			end,
 		},
 		{
-			text = "Équipement : tes améliorations (récompenses, vendeurs, butins)…",
+			text = "Équipement : tes améliorations (récompenses, vendeurs, butins, métiers)…",
 			func = function()
-				ns.GearUI.Toggle(true)
+				ns.GearUI.Toggle(true, "items")
+			end,
+		},
+		{
+			text = "Quel donjon faire pour mon équipement ?",
+			func = function()
+				ns.GearUI.Toggle(true, "dungeons")
 			end,
 		},
 		{

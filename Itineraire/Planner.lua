@@ -298,6 +298,12 @@ function Planner.Tasks(opts, plan, yield)
 		elseif q.complete or q.talkOnly then
 			q.status = "à rendre"
 			local points = Data.FinisherPoints(quest)
+			-- Questie ne sait pas où la rendre : repère du jeu (ou de DonData).
+			local hint = #points == 0 and not q.external and Data.QuestHint(q.id, true)
+			if hint then
+				points = { hint }
+				q.hint = hint.hint
+			end
 			if #points > 0 then
 				turnins[#turnins + 1] = { q = q, point = NearestPoint(points, plan.player) }
 				plan.turninTask[q.id] = turnins[#turnins]
@@ -349,7 +355,18 @@ function Planner.Tasks(opts, plan, yield)
 							break
 						end
 					else
-						unknown[#unknown + 1] = o
+						-- Questie ne sait pas où : repère du jeu (ou de DonData), une zone large autour du point.
+						local hint = not q.external and Data.QuestHint(q.id, false)
+						if hint then
+							mine[#mine + 1] = {
+								kind = "obj", q = q, index = i, objective = o, names = {}, hint = hint.hint,
+								clusters = { { count = 1, map = hint.map, x = hint.x, y = hint.y, wx = hint.wx, wy = hint.wy,
+									inst = hint.inst, radius = 80 } },
+							}
+							q.hint = hint.hint
+						else
+							unknown[#unknown + 1] = o
+						end
 					end
 				end
 			end
@@ -383,6 +400,10 @@ function Planner.Tasks(opts, plan, yield)
 					side.unknown[#side.unknown + 1] = { q = q, what = Compact(unknown[1].text) }
 				else
 					local points = Data.FinisherPoints(quest)
+					local guess = #points == 0 and not q.external and Data.TurnInGuess(q.id)
+					if guess then
+						points = { guess } -- (DonData : PNJ du rendu connu de ses données ou de ses joueurs)
+					end
 					if #points > 0 then
 						turnins[#turnins + 1] = { q = q, point = NearestPoint(points, plan.player), after = true }
 						plan.turninTask[q.id] = turnins[#turnins]
@@ -546,6 +567,16 @@ local function Describe(stop)
 			end
 		end
 		stop.lateWhy = why[1]
+	end
+	-- Lieu qui ne vient pas de Questie (repère du jeu, DonData) : on le dit.
+	for _, t in ipairs(stop.tasks) do
+		local source = t.hint or (t.point and t.point.hint)
+		if source then
+			lines[#lines + 1] = "Lieu donné par " .. (source == "DonData" and "DonData" or "le jeu")
+				.. " (Questie ne le connaît pas) : approximatif."
+			stop.hint = source
+			break
+		end
 	end
 	stop.details = lines
 end

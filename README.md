@@ -17,15 +17,20 @@ Il ne suit pas un guide figé : le trajet se recalcule à chaque quête prise, r
 - **Ton rythme** : il apprend en jouant le temps que tu mets par monstre, par objet et par zone, et affiche des
   fourchettes de temps qui se resserrent.
 - **L'équipement** :
-  - au rendu d'une quête, la récompense la plus utile pour ton rôle est encadrée et présélectionnée (sinon la
-    plus chère à revendre) ;
-  - la fenêtre **Équipement** (`/iti equipement`) liste les améliorations à ton niveau, emplacement par
-    emplacement, avec leur source : récompense de quête, vendeur, PNJ ou boss qui le fait tomber, coffre ;
-  - **« Y aller »** ajoute la source au trajet : la flèche t'y emmène.
+  - au rendu d'une quête, la récompense la plus utile pour ton rôle est encadrée « Conseillé » (sinon la plus chère à
+    revendre) ; rien n'est cliqué à ta place ;
+  - dans la bulle de n'importe quel objet (sacs, butin, hôtel des ventes) : « Itinéraire : +12 % pour toi » ;
+  - la fenêtre **Équipement** (`/iti equipement`, bouton E) liste les améliorations à ton niveau, emplacement par
+    emplacement, avec leur source : récompense de quête, vendeur, monstre ou coffre, **boss de donjon ou de raid**,
+    **objet que tes métiers fabriquent** (recette connue ou à apprendre) ;
+  - l'onglet **Donjons** répond à « quel donjon faire pour mon équipement ? » ;
+  - **« Y aller »** ajoute la source (ou l'entrée du donjon) au trajet : la flèche t'y emmène.
 
-  Les objets sont notés avec leurs vraies caractéristiques (celles du jeu) selon ton rôle (tank, mêlée,
-  distance, sorts, soins — deviné d'après tes talents, réglable) puis comparés à ce que tu portes. Les taux de
-  butin ne sont connus ni du jeu ni de Questie.
+  Les objets sont notés avec leurs vraies caractéristiques (celles du jeu) : poids par classe tirés des guides,
+  14 puissance d'attaque = 1 DPS d'arme, armure comptée en vie effective, et le rôle (tank, mêlée, distance, sorts,
+  soins — deviné d'après tes talents, réglable). Les taux de butin ne sont connus ni du jeu ni des bases de données.
+- **Les quêtes que Questie ne sait pas placer** : Itinéraire prend le repère que le jeu dessine sur la carte (et
+  DonData s'il est installé), au lieu de les laisser de côté.
 - **À plusieurs** (2 à 5 joueurs, désactivé par défaut) : le chef de groupe calcule un seul trajet avec les
   quêtes de tout le monde.
 
@@ -94,4 +99,24 @@ depuis 10 minutes et que WoW est fermé**. Les nouvelles versions comptent au la
 - `installateur/` : `Installer-Itineraire.ps1` (PowerShell 5.1, ASCII + BOM + CRLF) et son lanceur `.cmd`.
 - `outils/paquet.py` : fabrique `dist/Itineraire-vX.Y.Z.zip` (l'addon, lu par l'installateur) et
   `dist/Itineraire-vX.Y.Z-paquet.zip` (installateur + addon + mode d'emploi) pour une release GitHub.
+- `outils/donnees.py` : réimporte les données reprises d'autres addons (commits épinglés, SHA-256 vérifié) dans
+  `Itineraire/Donnees/`.
 - `CHANGELOG.md` : notes techniques de chaque version.
+
+## Données reprises et remerciements
+
+Itinéraire s'appuie sur le travail d'autres projets (détail et licences : `THIRD_PARTY.md`) :
+
+- [Questie](https://github.com/Questie/Questie) / QuestieDB : quêtes, PNJ, objets (lus en jeu) ;
+- [Shortest Path Forever](https://github.com/cjber/shortest-path-forever) : la flèche et les trajets ;
+- les addons de [WoW-Forever-Addons](https://github.com/orgs/WoW-Forever-Addons/repositories) (DonCoohd) :
+  butins des donjons et raids (Dropdon), entrées des donjons (DonData), recettes (Guildon Crafts), vendeurs et
+  entraîneurs (Finddon) ;
+- [All The Things](https://github.com/ATTWoWAddon/AllTheThings), [CMaNGOS classic-db](https://github.com/cmangos/classic-db)
+  et **Data from ForeverDB.net (https://foreverdb.net)** ;
+- le modèle de note des objets et les précautions propres à Forever (fenêtre de quête, données « secrètes ») viennent
+  de DonData et Questdon.
+
+## Licence
+
+GNU General Public License v3 ou ultérieure (`LICENSE`). Les données reprises gardent leur licence (MIT ou GPL v3).

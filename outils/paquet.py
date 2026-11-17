@@ -27,7 +27,7 @@ def version():
 def addon_files():
     files = sorted(p for p in ADDON.rglob("*") if p.is_file())
     for p in files:
-        if p.suffix.lower() not in {".lua", ".toc", ".xml"}:
+        if p.suffix.lower() not in {".lua", ".toc", ".xml", ".txt"}:
             sys.exit(f"Fichier inattendu dans l'addon : {p.relative_to(ROOT)}")
     return files
 

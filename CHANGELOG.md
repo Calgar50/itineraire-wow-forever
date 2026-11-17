@@ -156,3 +156,28 @@ Notes techniques de chaque version (la plus récente en bas). Pour l'usage, voir
     (`ns.INSTALLER_WANTED`).
   - Réglages : 4e onglet « Équipement » (récompenses, rôle, analyse) ; « Mises à jour » dans « Questie & flèche ».
   - Tests : `gear_test.lua`, versions dans `group_test.lua` (19 tests dans `run_all.sh`).
+- v2.0.0 (17/11/2026) : « fusionne tout » — données des addons Forever, équipement complet, licence GPL v3.
+  - `Itineraire/Donnees/` (nouveaux fichiers : relancer WoW) importés par `outils/donnees.py` (commits épinglés,
+    SHA-256 vérifié, contrôle « rien d'exécutable ») dans `ns.ext` : `BUTINS` + `OBJETS` (Dropdon / All The Things, MIT),
+    `ENTREES` (DonData, MIT), `RECETTES` (Guildon Crafts, GPL v3), `PNJ` + `MARCHANDISES` (Finddon, GPL v3 : CMaNGOS,
+    ForeverDB.net). Mesure avant fusion : 1 152 des 2 587 objets de donjons/raids n'avaient aucune source dans Questie.
+  - Licence GPL-3.0-or-later (`LICENSE`, `THIRD_PARTY.md`, copies `LICENCE.txt` / `TIERS.txt` dans l'addon).
+  - Note des objets refaite d'après DonData/Questdon (MIT) : poids F/A/E/I/Es par classe, PA → DPS (14), armure en
+    endurance de vie effective (H / (10 (A + 400 + 85 L))), armure et DPS lus dans la bulle (`C_TooltipInfo`) si
+    `GetItemStats` ne les donne pas ; rôle par-dessus (tank, sorts, soins). `CanDualWield`, pas de 1M face à une 2M portée.
+  - Récompense conseillée : plus AUCUN appel à l'interface de Blizzard (présélection retirée : la fenêtre de quête de
+    Forever passe par des délégués sécurisés) ; cadre `ItineraireRewardMark` sur UIParent ancré au bouton
+    `type == "choice"` de `QuestInfoRewardsFrame.RewardButtons` ; évaluation une image après `QUEST_COMPLETE`, reprise
+    sur `ITEM_DATA_LOAD_RESULT` / `GET_ITEM_INFO_RECEIVED`, pas avant le niveau requis.
+  - Recherche d'équipement : + butins des boss (donjons et raids de ton niveau, `GetItemInfoInstant` pour trier sans
+    charger), + objets fabriqués (`GetProfessions` / `GetProfessionInfo` ; recettes apprises lues dans ta fenêtre de
+    métier via `C_TradeSkillUI`), + vendeurs Finddon (les 8 plus proches de toi). Onglet « Donjons » (`Gear.DungeonRanking`)
+    et « Y aller » vers l'entrée (`S:donjon<id>`).
+  - Bulle des objets : `TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item)` (sinon `OnTooltipSetItem`),
+    pas dans les bulles de comparaison du jeu.
+  - Quêtes que Questie ne place pas : `Data.QuestHint` = repère du jeu (`C_QuestLog.GetQuestsOnMap` sur la carte du
+    joueur et ses parents, puis `GetNextWaypoint`), sinon `DonDataAPI` (ObjectivePoints, TurnInPoint) ; étape marquée
+    « approximatif ». (Pas de vérification « la quête existe-t-elle » : sur Forever le serveur répond « non » à tort.)
+  - Leveldon ajouté aux guides désactivés ; message unique si Questdon est installé (sa flèche et sa pièce d'or).
+  - Nouveautés : toutes les versions sautées sont affichées. Rapport : ligne « Données reprises ».
+  - Tests : `fusion_test.lua` (vraies données), 20 tests dans `run_all.sh`.
