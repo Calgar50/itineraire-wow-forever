@@ -20,6 +20,18 @@ local BACKDROP = {
 }
 
 local QUALITY = { [0] = "ff9d9d9d", [1] = "ffffffff", [2] = "ff1eff00", [3] = "ff0070dd", [4] = "ffa335ee", [5] = "ffff8000" }
+local QUALITY_RGB = {
+	[0] = { 0.62, 0.62, 0.62 }, [1] = { 0.9, 0.9, 0.9 }, [2] = { 0.12, 1, 0 }, [3] = { 0, 0.44, 0.87 },
+	[4] = { 0.64, 0.21, 0.93 }, [5] = { 1, 0.5, 0 },
+}
+-- Icône de la source (devant la ligne « vendu par… », « butin de… »).
+local SOURCE_ICONS = {
+	journal = "Interface\\GossipFrame\\ActiveQuestIcon", quest = "Interface\\GossipFrame\\AvailableQuestIcon",
+	later = "Interface\\GossipFrame\\AvailableQuestIcon", vendor = "Interface\\GossipFrame\\VendorGossipIcon",
+	dungeon = "Interface\\Icons\\INV_Misc_Key_03", drop = "Interface\\Icons\\INV_Misc_Bag_10",
+	object = "Interface\\Icons\\INV_Box_01", craft = "Interface\\Icons\\Trade_BlackSmithing",
+	recipe = "Interface\\Icons\\INV_Scroll_03",
+}
 
 local function Gear()
 	return ns.Gear
@@ -193,23 +205,42 @@ local function MakeRow(i)
 	row:SetPoint("TOPLEFT", 10, -TOP - (i - 1) * ROW_H)
 	row:SetPoint("RIGHT", -10, 0)
 	row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-	row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
-	row.icon = row:CreateTexture(nil, "ARTWORK")
-	row.icon:SetSize(30, 30)
-	row.icon:SetPoint("LEFT", 0, 0)
+	local Skin = ns.UI.Skin
+	-- une ligne sur deux très légèrement teintée
+	row.stripe = row:CreateTexture(nil, "BACKGROUND")
+	row.stripe:SetAllPoints()
+	row.stripe:SetColorTexture(1, 1, 1, i % 2 == 0 and 0.03 or 0)
+	local hl = row:CreateTexture(nil, "HIGHLIGHT")
+	hl:SetAllPoints()
+	hl:SetTexture(Skin.WHITE)
+	hl:SetBlendMode("ADD")
+	hl:SetVertexColor(1, 1, 1, 0.07)
+	-- icône de l'objet dans un cadre à la couleur de sa qualité
+	row.iconFrame = CreateFrame("Frame", nil, row)
+	row.iconFrame:SetSize(30, 30)
+	row.iconFrame:SetPoint("LEFT", 2, 0)
+	Skin.Border(row.iconFrame, 0, 0, 0, 1)
+	row.icon = row.iconFrame:CreateTexture(nil, "ARTWORK")
+	row.icon:SetAllPoints()
+	row.icon:SetTexCoord(0.06, 0.94, 0.06, 0.94)
 	row.name = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-	row.name:SetPoint("TOPLEFT", row.icon, "TOPRIGHT", 6, -1)
+	row.name:SetPoint("TOPLEFT", row.iconFrame, "TOPRIGHT", 8, -1)
 	row.name:SetPoint("RIGHT", -110, 0)
 	row.name:SetJustifyH("LEFT")
+	row.name:SetWordWrap(false)
+	-- petite icône du type de source (quête, vendeur, donjon, métier…) devant la ligne de source
+	row.kind = row:CreateTexture(nil, "ARTWORK")
+	row.kind:SetSize(12, 12)
+	row.kind:SetPoint("BOTTOMLEFT", row.iconFrame, "BOTTOMRIGHT", 8, 1)
 	row.sub = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-	row.sub:SetPoint("BOTTOMLEFT", row.icon, "BOTTOMRIGHT", 6, 1)
+	row.sub:SetPoint("LEFT", row.kind, "RIGHT", 4, 0)
 	row.sub:SetPoint("RIGHT", -110, 0)
 	row.sub:SetJustifyH("LEFT")
+	row.sub:SetWordWrap(false)
 	row.gain = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-	row.gain:SetPoint("TOPRIGHT", -2, -2)
-	row.go = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-	row.go:SetSize(84, 18)
-	row.go:SetPoint("BOTTOMRIGHT", -2, 1)
+	row.gain:SetPoint("TOPRIGHT", -4, -3)
+	row.go = Skin.Button(row, "", 88, 18)
+	row.go:SetPoint("BOTTOMRIGHT", -2, 2)
 	row.go:SetScript("OnClick", function()
 		if row.dungeonEntry then
 			ToggleDungeon(row.dungeonEntry)
@@ -265,30 +296,19 @@ local function SetTab(key)
 	tab = key
 	offset = 0
 	for k, b in pairs(tabs) do
-		if k == key then
-			b:LockHighlight()
-		else
-			b:UnlockHighlight()
-		end
+		b:SetSelected(k == key)
 	end
 	GearUI.Refresh()
 end
 
 local function Button(parent, text, width, onClick)
-	local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-	b:SetSize(width, 20)
-	b:SetText(text)
-	b:SetScript("OnClick", onClick)
-	return b
+	return ns.UI.Skin.Button(parent, text, width, 20, onClick)
 end
 
 local function Build()
 	frame = CreateFrame("Frame", "ItineraireGear", UIParent, "BackdropTemplate")
 	frame:SetSize(450, TOP + ROWS * ROW_H + 56)
 	frame:SetPoint("CENTER", 0, 40)
-	frame:SetBackdrop(BACKDROP)
-	frame:SetBackdropColor(0.03, 0.03, 0.06, 0.96)
-	frame:SetBackdropBorderColor(0.4, 0.6, 0.9, 1)
 	frame:SetFrameStrata("DIALOG")
 	frame:SetClampedToScreen(true)
 	frame:SetMovable(true)
@@ -299,14 +319,13 @@ local function Build()
 	frame:Hide()
 	tinsert(UISpecialFrames, "ItineraireGear")
 
-	local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-	title:SetPoint("TOPLEFT", 14, -12)
-	title:SetText("Équipement")
+	ns.UI.Skin.Header(frame, "Équipement", "Interface\\Icons\\INV_Shield_04", 26)
 	local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
+	close:SetSize(22, 22)
 	close:SetPoint("TOPRIGHT", -2, -2)
 
 	statusText = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	statusText:SetPoint("TOPLEFT", 14, -36)
+	statusText:SetPoint("TOPLEFT", 14, -38)
 	statusText:SetPoint("RIGHT", -150, 0)
 	statusText:SetJustifyH("LEFT")
 
@@ -384,13 +403,18 @@ local function FillItems()
 		row.entry, row.dungeonEntry = e, nil
 		if e then
 			row.icon:SetTexture(e.texture or "Interface\\Icons\\INV_Misc_QuestionMark")
+			local q = QUALITY_RGB[e.quality] or QUALITY_RGB[1]
+			ns.UI.Skin.Border(row.iconFrame, q[1], q[2], q[3], 1)
 			row.name:SetText("|c" .. (QUALITY[e.quality] or "ffffffff") .. (e.name or "?") .. "|r"
 				.. ((e.req or 0) > (UnitLevel("player") or 1) and (" |cffff9933(niv " .. e.req .. ")|r") or ""))
+			row.kind:SetTexture(SOURCE_ICONS[e.best and e.best.kind or ""] or SOURCE_ICONS.drop)
+			row.kind:Show()
 			row.sub:SetText(SourceLine(e))
 			row.gain:SetText("|cff00ff00" .. G.GainText(e) .. "|r")
 			local goal = G.IsGoal(e.id)
 			row.go:SetText(goal and "Sur le trajet" or (Actionable(e) and "Y aller" or "—"))
 			row.go:SetEnabled(Actionable(e))
+			row.go:SetSelected(goal)
 			row:Show()
 		else
 			row:Hide()
@@ -410,11 +434,17 @@ local function FillDungeons()
 		if r then
 			local d = r.dungeon
 			row.icon:SetTexture(d.raid and "Interface\\Icons\\INV_Misc_Head_Dragon_01" or "Interface\\Icons\\INV_Misc_Key_03")
+			local c = r.fits and ns.UI.Skin.COLORS.gold or ns.UI.Skin.COLORS.grey
+			ns.UI.Skin.Border(row.iconFrame, c[1], c[2], c[3], 1)
 			row.name:SetText((r.fits and "|cffffffff" or "|cff999999") .. d.name .. "|r |cff888888(niv " .. d.min .. "-" .. d.max .. ")|r")
+			row.kind:SetTexture(SOURCE_ICONS.dungeon)
+			row.kind:Show()
 			row.sub:SetText(r.count .. " emplacement(s) amélioré(s) · boss : " .. table.concat(r.bosses, ", "))
 			row.gain:SetText("|cff00ff00+" .. math.floor(r.pct + 0.5) .. " %|r")
-			row.go:SetText(G.IsDungeonGoal(d.id) and "Sur le trajet" or (d.entrance and "Y aller" or "—"))
+			local goal = G.IsDungeonGoal(d.id)
+			row.go:SetText(goal and "Sur le trajet" or (d.entrance and "Y aller" or "—"))
 			row.go:SetEnabled(d.entrance and true or false)
+			row.go:SetSelected(goal)
 			row:Show()
 		else
 			row:Hide()
@@ -428,6 +458,11 @@ function GearUI.Refresh()
 		return
 	end
 	local G = Gear()
+	ns.UI.Skin.Panel(frame, 0.97)
+	ns.UI.Skin.HeaderColors(frame)
+	for k, b in pairs(tabs) do
+		b:SetSelected(k == tab)
+	end
 	statusText:SetText(StatusLine())
 	local n = tab == "dungeons" and FillDungeons() or FillItems()
 	if n == 0 then

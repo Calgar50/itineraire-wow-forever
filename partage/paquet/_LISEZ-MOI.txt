@@ -1,6 +1,6 @@
 ITINÉRAIRE — le trajet le plus court à travers ton journal de quêtes
 ===================================================================
-(WoW Forever, version 2.1.0 du 17/11/2026 — github.com/Calgar50/itineraire-wow-forever)
+(WoW Forever, version 2.2.0 du 17/11/2026 — github.com/Calgar50/itineraire-wow-forever)
 
 Ce paquet contient :
   - Installer-Itineraire.cmd   (l'installation en un double-clic)
@@ -72,7 +72,9 @@ PREMIER LANCEMENT
 CE QUE TU VOIS
 --------------
 
-- LE BANDEAU, au-dessus de la flèche : ce qu'il y a à faire maintenant, en gros
+- LE BANDEAU, au-dessus de la flèche (il s'allume à chaque nouvelle étape, sa bordure
+  passe au vert quand tu es sur place, « PILOTE » s'affiche si le pilote est actif) :
+  ce qu'il y a à faire maintenant, en gros
   (« 1. Tuer : Zhévra 3/8 »), le temps qu'il reste (celui de la flèche, qui connaît
   le vrai chemin), le moyen de transport (« Voler vers Orgrimmar »), « Sur place »
   quand tu y es, et l'étape d'après.
@@ -81,8 +83,11 @@ CE QUE TU VOIS
 - LA FENÊTRE : les prochaines étapes numérotées (1, 2, 3…). Molette ou « Voir plus »
   pour la suite. En haut : nombre d'étapes, durée en fourchette (« 50–65 min ») et
   heure de fin. Le bloc « À savoir » se replie et se déplie d'un clic.
-  Boutons en haut à droite : P = pilote automatique, E = équipement, ? = route des rendus, Q = quête à suivre,
-  R = recalculer, … = menu.
+  Icônes en haut à droite (survole-les pour leur nom) : pilote automatique (bordure verte
+  = actif), équipement, route des rendus (?), quête à suivre (!), recalculer, réglages.
+  L'étape en cours est soulignée d'un trait de couleur ; une barre fine montre où tu en es
+  dans ses objectifs (« 3/8 »).
+  Style des cadres « Moderne » ou « Blizzard » : /iti reglages > Fenêtre.
 - LA FLÈCHE et le trajet en points (minicarte, carte) : Shortest Path Forever.
 
 

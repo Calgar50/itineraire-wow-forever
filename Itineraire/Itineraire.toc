@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: Itinéraire
 ## Notes: Calcule le trajet le plus court à travers TON journal de quêtes (rendus, objectifs, donjons) et le donne à Shortest Path Forever. Conseille aussi ton équipement (récompenses, vendeurs, donjons, métiers). Pilote automatique : quêtes, vols, marchand, maître.
-## Version: 2.1.0
+## Version: 2.2.0
 ## Dependencies: Questie
 ## OptionalDeps: QuestieDB, ShortestPathForever, ForeverCore, DonData
 ## X-License: GPL-3.0-or-later

@@ -675,6 +675,8 @@ local function UpdateButton()
 			or "Interface\\Icons\\INV_Misc_QuestionMark")
 		local count = Num((C_Item and C_Item.GetItemCount and Call(C_Item.GetItemCount, item.itemID)) or Call(GetItemCount, item.itemID)) or 0
 		button.count:SetText(count > 1 and count or "")
+		local key = GetBindingKey and Call(GetBindingKey, "CLICK ItineraireItemButton:LeftButton")
+		button.hotkey:SetText(type(key) == "string" and key:gsub("SHIFT%-", "s-"):gsub("CTRL%-", "c-"):gsub("ALT%-", "a-") or "")
 		local start, duration = Call((C_Container and C_Container.GetItemCooldown) or rawget(_G, "GetItemCooldown"), item.itemID)
 		if Num(start) and Num(duration) and duration > 0 then
 			button.cooldown:SetCooldown(start, duration)
@@ -712,6 +714,12 @@ function Pilote.CreateButton()
 	button.border:SetSize(76, 76)
 	button.count = button:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
 	button.count:SetPoint("BOTTOMRIGHT", -2, 2)
+	-- le raccourci clavier choisi, en petit en haut à gauche (comme sur les barres d'action)
+	button.hotkey = button:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmallGray")
+	button.hotkey:SetPoint("TOPLEFT", 3, -3)
+	if ns.UI and ns.UI.Skin then
+		ns.UI.Skin.Border(button, 0, 0, 0, 1)
+	end
 	button.cooldown = CreateFrame("Cooldown", nil, button, "CooldownFrameTemplate")
 	button.cooldown:SetAllPoints()
 	button:SetScript("OnDragStart", function(self)
@@ -833,6 +841,9 @@ local HANDLERS = {
 	ADDON_ACTION_FORBIDDEN = OnBlocked,
 	BAG_UPDATE_DELAYED = function()
 		UpdateButton()
+	end,
+	UPDATE_BINDINGS = function()
+		UpdateButton() -- (le raccourci affiché sur le bouton)
 	end,
 	PLAYER_REGEN_ENABLED = function()
 		if pendingButton then

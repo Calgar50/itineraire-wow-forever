@@ -35,6 +35,11 @@ ns.HOME = "github.com/Calgar50/itineraire-wow-forever"
 ns.INSTALLER_WANTED = 2
 -- Nouveautés affichées une fois après une mise à jour (pas de flèches Unicode : police du jeu incertaine).
 ns.NEWS = {
+	["2.2.0"] = {
+		"Nouveau look : cadres plats aux couleurs de ton thème, barre de titre avec des icônes (pilote, équipement, rendus, quête, recalcul, réglages), étape en cours soulignée, barre d'avancement des objectifs (fenêtre et bandeau).",
+		"Le bandeau s'allume à chaque nouvelle étape, passe au vert quand tu es sur place et affiche « PILOTE » quand le pilote est actif.",
+		"Fenêtre Équipement, réglages, assistant et rapport au même style ; le bouton de l'objet de quête montre ton raccourci. Style « Blizzard » au choix : /iti reglages > Fenêtre > Style des cadres.",
+	},
 	["2.1.0"] = {
 		"PILOTE AUTOMATIQUE (comme les guides « autopilot ») : il prend et rend les quêtes, prend le vol prévu chez le maître de vol, passe les cinématiques, répare et vend les objets gris, apprend tes techniques chez le maître de classe.",
 		"Bouton de l'objet de quête à utiliser maintenant (raccourci clavier dans Échap > Options > Raccourcis > Itinéraire).",

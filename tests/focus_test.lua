@@ -33,7 +33,7 @@ local function checkFeasible()
 end
 head("sans suivi")
 -- menu Q
-local qbtn; for _, f in ipairs(FRAMES) do if rawget(f, "text") == "Q" then qbtn = f end end
+local qbtn; for _, f in ipairs(FRAMES) do if rawget(f, "skinKey") == "quest" then qbtn = f end end
 qbtn.scripts.OnClick(qbtn)
 local menu = _G.ItineraireMenu
 local n = 0; for _, b in ipairs(menu.buttons) do if b.shown then n = n + 1 end end

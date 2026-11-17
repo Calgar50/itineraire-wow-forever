@@ -50,10 +50,275 @@ local function Find(list, key)
 end
 
 local frame, rows, advice, adviceBtn, status, summary, more, grip, menu, catcher, titleText
+local banner -- (bandeau « prochaine étape », créé plus bas)
+local adviceLine
 local buttons = {}
 
 local function S()
 	return ns.db.ui
+end
+
+-------------------------------------------------------------------------------
+-- Habillage commun (fenêtre, bandeau, Équipement, réglages, assistant, rapport, menus) : cadres plats à fine bordure
+-- aux couleurs du thème, liseré d'accent, barre de titre avec icône, boutons à icône, boutons et onglets plats, barres
+-- de progression. Style « Blizzard » (cadres d'infobulle du jeu) au choix dans les réglages.
+-- Seulement des textures présentes dans tous les clients (WHITE8X8, icônes de base du jeu).
+-------------------------------------------------------------------------------
+local Skin = {}
+UI.Skin = Skin
+local WHITE = "Interface\\Buttons\\WHITE8X8"
+local FLAT = { bgFile = WHITE, edgeFile = WHITE, edgeSize = 1, insets = { left = 1, right = 1, top = 1, bottom = 1 } }
+Skin.WHITE = WHITE
+Skin.COLORS = {
+	gold = { 1, 0.82, 0 }, green = { 0.35, 0.95, 0.45 }, grey = { 0.62, 0.62, 0.62 }, white = { 0.95, 0.95, 0.95 },
+	red = { 1, 0.42, 0.36 }, blue = { 0.45, 0.75, 1 }, orange = { 1, 0.6, 0.2 },
+}
+
+function Skin.Theme()
+	return Find(UI.THEMES, ns.db and ns.db.ui and ns.db.ui.theme)
+end
+
+function Skin.Classic()
+	return ns.db and ns.db.ui and ns.db.ui.style == "blizzard" or false
+end
+
+-- Bordure de 1 px autour d'un cadre (icône d'objet, bouton…).
+function Skin.Border(frame, r, g, b, a)
+	if not rawget(frame, "skinBorder") then
+		local t = {}
+		for i = 1, 4 do
+			local tex = frame:CreateTexture(nil, "OVERLAY")
+			tex:SetTexture(WHITE)
+			t[i] = tex
+		end
+		t[1]:SetPoint("TOPLEFT", -1, 1)
+		t[1]:SetPoint("TOPRIGHT", 1, 1)
+		t[1]:SetHeight(1)
+		t[2]:SetPoint("BOTTOMLEFT", -1, -1)
+		t[2]:SetPoint("BOTTOMRIGHT", 1, -1)
+		t[2]:SetHeight(1)
+		t[3]:SetPoint("TOPLEFT", -1, 1)
+		t[3]:SetPoint("BOTTOMLEFT", -1, -1)
+		t[3]:SetWidth(1)
+		t[4]:SetPoint("TOPRIGHT", 1, 1)
+		t[4]:SetPoint("BOTTOMRIGHT", 1, -1)
+		t[4]:SetWidth(1)
+		frame.skinBorder = t
+	end
+	for _, tex in ipairs(rawget(frame, "skinBorder")) do
+		tex:SetVertexColor(r or 0, g or 0, b or 0, a or 1)
+	end
+end
+
+-- Fond + bordure du thème (+ liseré d'accent en haut). `border` : couleur de bordure à la place du thème.
+function Skin.Panel(frame, alpha, border)
+	local theme = Skin.Theme()
+	local classic = Skin.Classic()
+	if frame.SetBackdrop then
+		frame:SetBackdrop(classic and BACKDROP or FLAT)
+		frame:SetBackdropColor(theme.bg[1], theme.bg[2], theme.bg[3], alpha or 0.92)
+		local c = border or theme.border
+		frame:SetBackdropBorderColor(c[1], c[2], c[3], classic and 1 or 0.9)
+	end
+	if not rawget(frame, "skinAccent") then
+		frame.skinAccent = frame:CreateTexture(nil, "BORDER")
+		frame.skinAccent:SetTexture(WHITE)
+		frame.skinAccent:SetPoint("TOPLEFT", 1, -1)
+		frame.skinAccent:SetPoint("TOPRIGHT", -1, -1)
+		frame.skinAccent:SetHeight(2)
+	end
+	local a = border or theme.hl
+	frame.skinAccent:SetVertexColor(a[1], a[2], a[3], 0.9)
+	frame.skinAccent:SetShown(not classic)
+end
+
+-- Barre de titre : icône + titre, et un trait discret dessous. Rend la ligne de texte du titre.
+function Skin.Header(frame, title, icon, height)
+	height = height or 24
+	local h = rawget(frame, "skinHeader")
+	if not h then
+		h = {}
+		frame.skinHeader = h
+		h.icon = frame:CreateTexture(nil, "ARTWORK")
+		h.icon:SetSize(16, 16)
+		h.icon:SetPoint("TOPLEFT", 8, -5)
+		h.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+		h.text = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+		h.text:SetPoint("LEFT", h.icon, "RIGHT", 6, 0)
+		h.text:SetJustifyH("LEFT")
+		h.line = frame:CreateTexture(nil, "BORDER")
+		h.line:SetTexture(WHITE)
+		h.line:SetHeight(1)
+		h.line:SetPoint("TOPLEFT", 6, -height)
+		h.line:SetPoint("TOPRIGHT", -6, -height)
+	end
+	h.icon:SetTexture(icon or "Interface\\Icons\\INV_Misc_Map_01")
+	h.text:SetText(title or "")
+	Skin.HeaderColors(frame)
+	return h.text
+end
+
+function Skin.HeaderColors(frame)
+	local h = rawget(frame, "skinHeader")
+	if h then
+		local theme = Skin.Theme()
+		h.text:SetTextColor(theme.hl[1], theme.hl[2], theme.hl[3])
+		h.line:SetVertexColor(theme.border[1], theme.border[2], theme.border[3], 0.35)
+	end
+end
+
+-- Trait de séparation horizontal (sous un intitulé de section…).
+function Skin.Line(parent, alpha)
+	local line = parent:CreateTexture(nil, "BORDER")
+	line:SetTexture(WHITE)
+	line:SetHeight(1)
+	local theme = Skin.Theme()
+	line:SetVertexColor(theme.border[1], theme.border[2], theme.border[3], alpha or 0.3)
+	return line
+end
+
+local function TipScript(b, title, text)
+	b:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_TOP")
+		if title then
+			GameTooltip:AddLine(title, 1, 0.82, 0)
+		end
+		if text then
+			GameTooltip:AddLine(text, 1, 1, 1, true)
+		end
+		GameTooltip:Show()
+	end)
+	b:SetScript("OnLeave", function()
+		GameTooltip:Hide()
+	end)
+end
+Skin.Tip = TipScript
+
+-- Petit bouton à icône (barre de titre). `key` : son nom (tests, réglages). SetActive(true) : bordure verte (allumé).
+function Skin.IconButton(parent, key, icon, title, tip, onClick, size, crop)
+	local b = CreateFrame("Button", nil, parent)
+	size = size or 18
+	b:SetSize(size, size)
+	b.skinKey = key
+	b.tipText = tip
+	b.icon = b:CreateTexture(nil, "ARTWORK")
+	b.icon:SetAllPoints()
+	b.icon:SetTexture(icon)
+	if crop ~= false then
+		b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+	end
+	local hl = b:CreateTexture(nil, "HIGHLIGHT")
+	hl:SetAllPoints()
+	hl:SetTexture(WHITE)
+	hl:SetBlendMode("ADD")
+	hl:SetVertexColor(1, 1, 1, 0.25)
+	Skin.Border(b, 0, 0, 0, 0.9)
+	b:SetScript("OnClick", onClick)
+	TipScript(b, title, tip)
+	function b:SetActive(on)
+		self.active = on and true or false
+		local c = on and Skin.COLORS.green
+		if c then
+			Skin.Border(self, c[1], c[2], c[3], 1)
+		else
+			Skin.Border(self, 0, 0, 0, 0.9)
+		end
+	end
+	return b
+end
+
+-- Bouton plat (texte), ou onglet / choix avec SetSelected(true).
+function Skin.StyleButton(b)
+	local theme = Skin.Theme()
+	if b.SetBackdrop then
+		b:SetBackdrop(FLAT)
+		if rawget(b, "selected") then
+			b:SetBackdropColor(theme.hl[1] * 0.25, theme.hl[2] * 0.25, theme.hl[3] * 0.25, 0.95)
+			b:SetBackdropBorderColor(theme.hl[1], theme.hl[2], theme.hl[3], 1)
+		else
+			b:SetBackdropColor(0.1, 0.1, 0.13, 0.95)
+			b:SetBackdropBorderColor(theme.border[1], theme.border[2], theme.border[3], 0.55)
+		end
+	end
+	if rawget(b, "label") then
+		local c = rawget(b, "selected") and theme.hl or Skin.COLORS.white
+		b.label:SetTextColor(c[1], c[2], c[3])
+	end
+end
+
+function Skin.Button(parent, text, width, height, onClick)
+	local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
+	b:SetSize(width or 100, height or 22)
+	b.label = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	b.label:SetPoint("LEFT", 4, 0)
+	b.label:SetPoint("RIGHT", -4, 0)
+	b:SetFontString(b.label)
+	b:SetText(text or "")
+	local hl = b:CreateTexture(nil, "HIGHLIGHT")
+	hl:SetPoint("TOPLEFT", 1, -1)
+	hl:SetPoint("BOTTOMRIGHT", -1, 1)
+	hl:SetTexture(WHITE)
+	hl:SetBlendMode("ADD")
+	hl:SetVertexColor(1, 1, 1, 0.1)
+	if onClick then
+		b:SetScript("OnClick", onClick)
+	end
+	function b:SetSelected(on)
+		self.selected = on and true or false
+		Skin.StyleButton(self)
+	end
+	b:SetScript("OnEnable", function(self)
+		self.label:SetAlpha(1)
+	end)
+	b:SetScript("OnDisable", function(self)
+		self.label:SetAlpha(0.45)
+	end)
+	Skin.StyleButton(b)
+	return b
+end
+
+-- Barre de progression fine. bar:SetProgress(0..1 ou nil, couleur).
+function Skin.Bar(parent, height)
+	local bar = CreateFrame("StatusBar", nil, parent)
+	bar:SetHeight(height or 3)
+	bar:SetStatusBarTexture(WHITE)
+	bar:SetMinMaxValues(0, 1)
+	bar.bg = bar:CreateTexture(nil, "BACKGROUND")
+	bar.bg:SetAllPoints()
+	bar.bg:SetTexture(WHITE)
+	bar.bg:SetVertexColor(1, 1, 1, 0.08)
+	function bar:SetProgress(frac, color)
+		if not frac then
+			self:Hide()
+			return
+		end
+		local c = color or (frac >= 1 and Skin.COLORS.green or Skin.Theme().hl)
+		self:SetStatusBarColor(c[1], c[2], c[3], 0.9)
+		self:SetValue(math.max(0, math.min(1, frac)))
+		self:Show()
+	end
+	bar:Hide()
+	return bar
+end
+
+-- Avancement d'une étape (objectifs « 3/8 ») : 0..1, ou nil si l'étape n'a rien à compter.
+function UI.StopProgress(s)
+	if not s or s.kind == "turnin" or s.kind == "pickup" or s.kind == "service" then
+		return nil
+	end
+	local have, need = 0, 0
+	for _, t in ipairs(s.tasks or {}) do
+		local o = t.objective
+		local n = o and tonumber(o.numRequired)
+		if n and n > 0 then
+			need = need + n
+			have = have + math.min(n, tonumber(o.numFulfilled) or 0)
+		end
+	end
+	if need == 0 then
+		return nil
+	end
+	return have / need
 end
 
 local function Duration(seconds)
@@ -204,8 +469,6 @@ end
 function UI.ShowMenu(items)
 	if not menu then
 		menu = CreateFrame("Frame", "ItineraireMenu", UIParent, "BackdropTemplate")
-		menu:SetBackdrop(BACKDROP)
-		menu:SetBackdropColor(0.05, 0.05, 0.08, 0.95)
 		menu:SetFrameStrata("FULLSCREEN_DIALOG")
 		menu:SetClampedToScreen(true)
 		menu.buttons = {}
@@ -228,7 +491,11 @@ function UI.ShowMenu(items)
 			b.text = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 			b.text:SetPoint("LEFT", 8, 0)
 			b.text:SetJustifyH("LEFT")
-			b:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+			local hl = b:CreateTexture(nil, "HIGHLIGHT")
+			hl:SetAllPoints()
+			hl:SetTexture(WHITE)
+			hl:SetBlendMode("ADD")
+			hl:SetVertexColor(1, 1, 1, 0.1)
 			b:RegisterForClicks("AnyUp")
 			menu.buttons[i] = b
 		end
@@ -257,6 +524,7 @@ function UI.ShowMenu(items)
 		menu.buttons[i]:Hide()
 	end
 	menu:SetSize(width, #items * 18 + 12)
+	Skin.Panel(menu, 0.96)
 	local scale = UIParent:GetEffectiveScale()
 	local x, y = GetCursorPosition()
 	menu:ClearAllPoints()
@@ -324,24 +592,20 @@ local STATUS_COLOR = {
 -- Bouton « P » allumé tant que le pilote automatique est actif.
 function UI.SetPilote(on)
 	local b = buttons and buttons.pilote
-	if b then
-		if on then
-			b:LockHighlight()
-		else
-			b:UnlockHighlight()
-		end
+	if b and b.SetActive then
+		b:SetActive(on)
+	end
+	if banner and rawget(banner, "pilot") then
+		banner.pilot:SetShown(on and true or false)
+		UI.UpdateBannerTime()
 	end
 end
 
 -- Bouton « ? » allumé tant que la route des rendus est active.
 function UI.SetTurnins(on)
 	local b = buttons and buttons.turnins
-	if b then
-		if on then
-			b:LockHighlight()
-		else
-			b:UnlockHighlight()
-		end
+	if b and b.SetActive then
+		b:SetActive(on)
 	end
 end
 
@@ -590,7 +854,13 @@ local function StyleRow(row)
 	row.sub:SetShown(not s.compact)
 	row.time:SetShown(s.times)
 	local theme = Find(UI.THEMES, s.theme)
-	row.bg:SetColorTexture(theme.hl[1], theme.hl[2], theme.hl[3], 0.14)
+	row.bg:SetColorTexture(theme.hl[1], theme.hl[2], theme.hl[3], 0.12)
+	row.accent:SetColorTexture(theme.hl[1], theme.hl[2], theme.hl[3], 0.95)
+	-- barre d'avancement des objectifs, sous le texte de l'étape
+	row.bar:ClearAllPoints()
+	row.bar:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", left, 1)
+	row.bar:SetPoint("RIGHT", row, "RIGHT", right, 0)
+	row.compact = s.compact
 end
 
 local function MakeRow(parent)
@@ -599,7 +869,23 @@ local function MakeRow(parent)
 	row.bg = row:CreateTexture(nil, "BACKGROUND")
 	row.bg:SetAllPoints()
 	row.bg:Hide()
-	row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+	-- étape en cours : liseré à gauche, aux couleurs du thème
+	row.accent = row:CreateTexture(nil, "BORDER")
+	row.accent:SetPoint("TOPLEFT", 0, -2)
+	row.accent:SetPoint("BOTTOMLEFT", 0, 2)
+	row.accent:SetWidth(3)
+	row.accent:Hide()
+	-- une ligne sur deux très légèrement teintée (lecture plus facile)
+	row.stripe = row:CreateTexture(nil, "BACKGROUND", nil, -1)
+	row.stripe:SetAllPoints()
+	row.stripe:SetColorTexture(1, 1, 1, 0.025)
+	row.stripe:Hide()
+	row.bar = Skin.Bar(row, 2)
+	local hl = row:CreateTexture(nil, "HIGHLIGHT")
+	hl:SetAllPoints()
+	hl:SetTexture(WHITE)
+	hl:SetBlendMode("ADD")
+	hl:SetVertexColor(1, 1, 1, 0.07)
 	row.num = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	row.num:SetPoint("LEFT", 0, 0)
 	row.num:SetWidth(26)
@@ -651,20 +937,24 @@ end
 -------------------------------------------------------------------------------
 -- Fenêtre
 -------------------------------------------------------------------------------
-local function SmallButton(label, tip, onClick)
-	local b = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-	b:SetSize(26, 18)
-	b:SetText(label)
-	b:SetScript("OnClick", onClick)
-	b:SetScript("OnEnter", function(self)
-		GameTooltip:SetOwner(self, "ANCHOR_TOP")
-		GameTooltip:AddLine(tip, 1, 1, 1, true)
-		GameTooltip:Show()
-	end)
-	b:SetScript("OnLeave", function()
-		GameTooltip:Hide()
-	end)
-	return b
+-- Boutons de la barre de titre : icônes du jeu (lisibles d'un coup d'œil), bulle avec le titre et l'explication.
+local HEADER_BUTTONS = {
+	{ key = "options", icon = "Interface\\Icons\\INV_Misc_Gear_01", title = "Options",
+		tip = "Réglages, route des rendus, équipement, pilote, rapport…" },
+	{ key = "recalc", icon = "Interface\\Icons\\INV_Misc_PocketWatch_01", title = "Recalculer",
+		tip = "Recalculer le trajet (et reprendre le guidage s'il était en pause)." },
+	{ key = "quest", icon = "Interface\\GossipFrame\\AvailableQuestIcon", crop = false, title = "Quête à suivre",
+		tip = "Choisir LA quête à faire en premier (le bouton « focus » du suivi de Questie marche aussi)." },
+	{ key = "turnins", icon = "Interface\\GossipFrame\\ActiveQuestIcon", crop = false, title = "Route des rendus",
+		tip = "Un trajet qui ne fait que rendre tes quêtes terminées. Re-clic : retour au trajet complet." },
+	{ key = "gear", icon = "Interface\\Icons\\INV_Shield_04", title = "Équipement",
+		tip = "Tes améliorations (récompenses, vendeurs, butins de donjon, métiers), « Quel donjon faire ? » et « Y aller »." },
+	{ key = "pilote", icon = "Interface\\Icons\\Ability_Hunter_Pathfinding", title = "Pilote automatique",
+		tip = "Bordure verte = actif : il prend et rend les quêtes, prend le vol prévu, passe les cinématiques, répare et vend les objets gris, apprend tes techniques. MAJ en parlant à un PNJ : tu reprends la main. Clic : marche / arrêt." },
+}
+
+local function SmallButton(def, onClick)
+	return Skin.IconButton(frame, def.key, def.icon, def.title, def.tip, onClick, 18, def.crop)
 end
 
 function UI.Create()
@@ -697,45 +987,46 @@ function UI.Create()
 	end)
 	frame:SetPoint(s.point or "LEFT", UIParent, s.rel or "LEFT", s.x or 20, s.y or 120)
 
-	titleText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-	titleText:SetPoint("TOPLEFT", 10, -9)
-	titleText:SetText("Itinéraire")
+	titleText = Skin.Header(frame, "Itinéraire", "Interface\\Icons\\INV_Misc_Map_01")
 
 	local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
-	close:SetSize(22, 22)
+	close:SetSize(20, 20)
 	close:SetPoint("TOPRIGHT", -2, -2)
 	close:SetScript("OnClick", function()
 		UI.Toggle(false)
 	end)
-	buttons.options = SmallButton("...", "Options et personnalisation", OptionsMenu)
-	buttons.options:SetPoint("RIGHT", close, "LEFT", -2, 0)
-	buttons.recalc = SmallButton("R", "Recalculer (et reprendre le guidage s'il était en pause)", function()
-		ns.SetPaused(false)
-		ns.Guide.Reset()
-		ns.RequestPlan("button", 0)
-	end)
-	buttons.recalc:SetPoint("RIGHT", buttons.options, "LEFT", -2, 0)
-	buttons.quest = SmallButton("Q", "Choisir la quête à suivre en premier (le bouton « focus » à côté d'une quête dans le suivi de Questie marche aussi)", UI.QuestMenu)
-	buttons.quest:SetPoint("RIGHT", buttons.recalc, "LEFT", -2, 0)
-	buttons.turnins = SmallButton("?", "Route des rendus : un trajet qui ne fait que rendre tes quêtes terminées. Re-clic : retour au trajet complet.", function()
-		ns.ToggleTurnins()
-	end)
-	buttons.turnins:SetPoint("RIGHT", buttons.quest, "LEFT", -2, 0)
-	buttons.gear = SmallButton("E", "Équipement : les améliorations pour ton personnage (récompenses de quêtes, vendeurs, butins) et « Y aller » pour les ajouter au trajet.", function()
-		ns.GearUI.Toggle()
-	end)
-	buttons.gear:SetPoint("RIGHT", buttons.turnins, "LEFT", -2, 0)
-	buttons.pilote = SmallButton("P", "Pilote automatique (allumé = actif) : il prend et rend les quêtes, prend le vol prévu, passe les cinématiques, répare et vend les objets gris, apprend tes techniques. MAJ en parlant à un PNJ : tu reprends la main. Clic : marche / arrêt.", function()
-		if ns.piloteMissing then
-			ns.Print("le pilote arrive avec un nouveau fichier : quitte et relance complètement WoW.")
-			return
-		end
-		ns.Pilote.SetOn(not ns.Pilote.Config().on)
-	end)
-	buttons.pilote:SetPoint("RIGHT", buttons.gear, "LEFT", -2, 0)
+	local actions = {
+		options = OptionsMenu,
+		recalc = function()
+			ns.SetPaused(false)
+			ns.Guide.Reset()
+			ns.RequestPlan("button", 0)
+		end,
+		quest = UI.QuestMenu,
+		turnins = function()
+			ns.ToggleTurnins()
+		end,
+		gear = function()
+			ns.GearUI.Toggle()
+		end,
+		pilote = function()
+			if ns.piloteMissing then
+				ns.Print("le pilote arrive avec un nouveau fichier : quitte et relance complètement WoW.")
+				return
+			end
+			ns.Pilote.SetOn(not ns.Pilote.Config().on)
+		end,
+	}
+	local prev = close
+	for _, def in ipairs(HEADER_BUTTONS) do
+		local b = SmallButton(def, actions[def.key])
+		b:SetPoint("RIGHT", prev, "LEFT", prev == close and -2 or -4, 0)
+		buttons[def.key] = b
+		prev = b
+	end
 
 	summary = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	summary:SetPoint("TOPLEFT", 10, -26)
+	summary:SetPoint("TOPLEFT", 10, -30)
 	summary:SetPoint("RIGHT", -10, 0)
 	summary:SetJustifyH("LEFT")
 
@@ -746,8 +1037,7 @@ function UI.Create()
 
 	rows = {}
 
-	more = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-	more:SetSize(220, 18)
+	more = Skin.Button(frame, "", 220, 18)
 	more:SetScript("OnClick", function()
 		ns.session.expanded = not ns.session.expanded
 		ns.session.scroll = 0
@@ -772,6 +1062,8 @@ function UI.Create()
 	advice = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	advice:SetJustifyH("LEFT")
 	advice:SetSpacing(2)
+	adviceLine = Skin.Line(frame, 0.3)
+	adviceLine:Hide()
 	-- Le bloc « À savoir » se replie en une ligne (clic).
 	adviceBtn = CreateFrame("Button", nil, frame)
 	adviceBtn:SetAllPoints(advice)
@@ -845,12 +1137,15 @@ function UI.ApplySettings()
 		return
 	end
 	local s = S()
-	local theme = Find(UI.THEMES, s.theme)
 	frame:SetScale(s.scale or 1)
 	frame:SetWidth(s.width or 360)
-	frame:SetBackdropColor(theme.bg[1], theme.bg[2], theme.bg[3], s.alpha or 0.82)
-	frame:SetBackdropBorderColor(theme.border[1], theme.border[2], theme.border[3], math.min(1, (s.alpha or 0.82) + 0.2))
-	titleText:SetTextColor(theme.hl[1], theme.hl[2], theme.hl[3])
+	Skin.Panel(frame, s.alpha or 0.82)
+	Skin.HeaderColors(frame)
+	Skin.StyleButton(more)
+	if adviceLine then
+		local theme = Skin.Theme()
+		adviceLine:SetVertexColor(theme.border[1], theme.border[2], theme.border[3], 0.3)
+	end
 	advice:SetWidth((s.width or 360) - 20)
 	grip:SetShown(not s.locked)
 	summary:SetShown(s.summary ~= false)
@@ -899,7 +1194,7 @@ function UI.Layout(count)
 	end
 	local s = S()
 	shownRows = count or shownRows
-	local y = -26
+	local y = -30
 	if s.summary ~= false then
 		y = y - (summary:GetStringHeight() or 10) - 2
 	end
@@ -931,14 +1226,20 @@ function UI.Layout(count)
 	end
 	local text = advice:GetText()
 	if s.advice ~= false and text and text ~= "" then
+		-- un trait discret sépare les étapes du bloc « À savoir »
+		adviceLine:ClearAllPoints()
+		adviceLine:SetPoint("TOPLEFT", 8, y - 4)
+		adviceLine:SetPoint("RIGHT", frame, "RIGHT", -8, 0)
+		adviceLine:Show()
 		advice:ClearAllPoints()
-		advice:SetPoint("TOPLEFT", 10, y - 6)
+		advice:SetPoint("TOPLEFT", 10, y - 9)
 		advice:Show()
 		adviceBtn:Show()
-		y = y - 10 - advice:GetStringHeight()
+		y = y - 13 - advice:GetStringHeight()
 	else
 		advice:Hide()
 		adviceBtn:Hide()
+		adviceLine:Hide()
 	end
 	frame:SetHeight(-y + 14)
 end
@@ -1091,8 +1392,16 @@ function UI.Refresh(plan)
 			sub = sub .. " · |cff66ff66niv " .. s.levelUp .. " ici|r"
 		end
 		row.sub:SetText(sub)
-		row.time:SetText(s.number == 1 and ("» " .. Duration(s.leg)) or Duration(s.leg))
-		row.bg:SetShown(s.number == 1)
+		local current = s.number == 1
+		row.time:SetText(current and ("» " .. Duration(s.leg)) or Duration(s.leg))
+		row.time:SetTextColor(unpack(current and Skin.Theme().hl or Skin.COLORS.grey))
+		row.num:SetTextColor(unpack(current and Skin.Theme().hl or Skin.COLORS.grey))
+		row.bg:SetShown(current)
+		row.accent:SetShown(current)
+		row.stripe:SetShown(not current and (offset + i) % 2 == 0)
+		-- avancement des objectifs de l'étape (« 3/8 » -> barre), pas en mode compact
+		local progress = not row.compact and UI.StopProgress(s) or nil
+		row.bar:SetProgress(progress and progress > 0 and progress or nil)
 	end
 	for i = visible + 1, #rows do
 		rows[i].stop = nil
@@ -1112,7 +1421,6 @@ end
 -------------------------------------------------------------------------------
 -- Bandeau « prochaine étape » : en gros, près de la flèche, ce qu'il y a à faire maintenant
 -------------------------------------------------------------------------------
-local banner
 
 local function Short(text, max)
 	text = tostring(text or "")
@@ -1150,7 +1458,7 @@ local function BannerTime(s)
 	local d = ns.Geo.Yards(p, s)
 	if d and d <= math.max(s.radius or 0, 25) then
 		local work = (s.work or 0) >= 50 and (" · ~" .. Minutes(s.work) .. " min sur place") or ""
-		return "|cff66ff66Sur place|r" .. work
+		return "|cff66ff66Sur place|r" .. work, true
 	end
 	local api = ns.Geo.SPApi()
 	if api and api.Journey and ns.session.previous == s.key then
@@ -1176,7 +1484,7 @@ function UI.UpdateBannerTime()
 	end
 	local plan = ns.plan
 	local nextStop = plan and plan.order and plan.order[2]
-	local line = BannerTime(s)
+	local line, here = BannerTime(s)
 	if plan and plan.turninOnly then
 		line = "|cffffd100Rendus|r · " .. line
 	end
@@ -1184,8 +1492,14 @@ function UI.UpdateBannerTime()
 		line = line .. " |cff888888· ensuite : " .. Short(nextStop.title, 40) .. "|r"
 	end
 	banner.line:SetText(line)
-	local width = math.max(banner.title:GetStringWidth() or 0, banner.line:GetStringWidth() or 0) + 56
-	banner:SetWidth(math.max(240, math.min(520, width)))
+	-- sur place : bordure verte (on y est)
+	if here ~= rawget(banner, "here") then
+		banner.here = here or false
+		UI.StyleBanner()
+	end
+	local chip = banner.pilot:IsShown() and 48 or 0
+	local width = math.max((banner.title:GetStringWidth() or 0) + chip, banner.line:GetStringWidth() or 0) + 62
+	banner:SetWidth(math.max(260, math.min(560, width)))
 end
 
 function UI.UpdateBannerVisibility()
@@ -1211,15 +1525,32 @@ function UI.RefreshBanner(plan)
 	plan = plan or ns.plan
 	local s = plan and plan.order and plan.order[1]
 	banner.stop = s
-	if ns.session.paused then
+	local paused = ns.session.paused and true or false
+	if paused then
 		banner.icon:SetTexture(ICONS.area)
 		banner.title:SetText("|cffff9933Guidage en pause|r")
-		banner.line:SetText("Clic droit : reprendre (ou bouton R de la fenêtre)")
+		banner.line:SetText("Clic droit : reprendre (ou bouton de recalcul de la fenêtre)")
+		banner.bar:SetProgress(nil)
 	elseif s then
 		banner.icon:SetTexture(StopIcon(s))
 		local who = plan.group and ("|cff66ccff[" .. plan.group.guide .. "]|r ") or ""
 		banner.title:SetText(who .. "|cffffd200" .. (s.number or 1) .. ".|r " .. Short(s.title, 70) .. PickupText(s))
+		banner.bar:SetProgress(UI.StopProgress(s))
 	end
+	-- nouvelle étape : le bandeau s'allume un instant
+	local key = paused and "pause" or (s and s.key)
+	if key ~= rawget(banner, "lastKey") then
+		banner.lastKey = key
+		if rawget(banner, "flash") and banner:IsShown() then
+			banner.flash:Stop()
+			banner.flash:Play()
+		end
+	end
+	if paused ~= rawget(banner, "paused") then
+		banner.paused = paused
+		UI.StyleBanner()
+	end
+	banner.pilot:SetShown(not ns.piloteMissing and ns.Pilote and ns.Pilote.Config and ns.Pilote.Config().on == true or false)
 	UI.UpdateBannerVisibility()
 	UI.UpdateBannerTime()
 end
@@ -1247,8 +1578,7 @@ function UI.CreateBanner()
 		return
 	end
 	banner = CreateFrame("Button", "ItineraireBanner", UIParent, "BackdropTemplate")
-	banner:SetSize(360, 46)
-	banner:SetBackdrop(BACKDROP)
+	banner:SetSize(360, 50)
 	banner:SetClampedToScreen(true)
 	banner:SetMovable(true)
 	banner:EnableMouse(true)
@@ -1265,17 +1595,40 @@ function UI.CreateBanner()
 		local point, _, rel, x, y = self:GetPoint()
 		S().bannerPos = { point, rel, x, y }
 	end)
-	banner.icon = banner:CreateTexture(nil, "ARTWORK")
-	banner.icon:SetSize(26, 26)
-	banner.icon:SetPoint("LEFT", 10, 0)
+	-- icône du type d'étape dans un cadre
+	banner.iconFrame = CreateFrame("Frame", nil, banner)
+	banner.iconFrame:SetSize(30, 30)
+	banner.iconFrame:SetPoint("LEFT", 9, 0)
+	Skin.Border(banner.iconFrame, 0, 0, 0, 0.9)
+	banner.icon = banner.iconFrame:CreateTexture(nil, "ARTWORK")
+	banner.icon:SetAllPoints()
 	banner.title = banner:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
-	banner.title:SetPoint("TOPLEFT", 44, -7)
+	banner.title:SetPoint("TOPLEFT", 48, -8)
 	banner.title:SetJustifyH("LEFT")
 	banner.title:SetWordWrap(false)
 	banner.line = banner:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	banner.line:SetPoint("TOPLEFT", banner.title, "BOTTOMLEFT", 0, -3)
 	banner.line:SetJustifyH("LEFT")
 	banner.line:SetWordWrap(false)
+	-- avancement des objectifs de l'étape
+	banner.bar = Skin.Bar(banner, 3)
+	banner.bar:SetPoint("BOTTOMLEFT", 48, 6)
+	banner.bar:SetPoint("RIGHT", -10, 0)
+	-- « PILOTE » en vert quand le pilote automatique est actif
+	banner.pilot = banner:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+	banner.pilot:SetPoint("TOPRIGHT", -8, -6)
+	banner.pilot:SetText("PILOTE")
+	banner.pilot:SetTextColor(0.35, 0.95, 0.45)
+	banner.pilot:Hide()
+	-- s'allume un instant à chaque nouvelle étape
+	if banner.CreateAnimationGroup then
+		banner.flash = banner:CreateAnimationGroup()
+		local fade = banner.flash:CreateAnimation("Alpha")
+		fade:SetFromAlpha(0.35)
+		fade:SetToAlpha(1)
+		fade:SetDuration(0.35)
+		fade:SetSmoothing("OUT")
+	end
 	banner:SetScript("OnClick", function(_, button)
 		if button == "RightButton" then
 			BannerMenu()
@@ -1310,10 +1663,10 @@ function UI.StyleBanner()
 		return
 	end
 	local s = S()
-	local theme = Find(UI.THEMES, s.theme)
 	banner:SetScale(s.bannerScale or 1)
-	banner:SetBackdropColor(theme.bg[1], theme.bg[2], theme.bg[3], math.max(0.6, s.alpha or 0.82))
-	banner:SetBackdropBorderColor(theme.border[1], theme.border[2], theme.border[3], 1)
+	-- bordure : verte sur place, orange en pause, sinon celle du thème
+	local border = rawget(banner, "paused") and Skin.COLORS.orange or rawget(banner, "here") and Skin.COLORS.green or nil
+	Skin.Panel(banner, math.max(0.7, s.alpha or 0.82), border)
 end
 
 function UI.ResetBannerPosition()
@@ -1340,9 +1693,6 @@ function UI.ShowCopyBox(title, hint, text)
 		copy = CreateFrame("Frame", "ItineraireCopy", UIParent, "BackdropTemplate")
 		copy:SetSize(640, 440)
 		copy:SetPoint("CENTER")
-		copy:SetBackdrop(BACKDROP)
-		copy:SetBackdropColor(0.03, 0.03, 0.06, 0.97)
-		copy:SetBackdropBorderColor(0.4, 0.6, 0.9, 1)
 		copy:SetFrameStrata("DIALOG")
 		copy:SetClampedToScreen(true)
 		copy:SetMovable(true)
@@ -1351,10 +1701,9 @@ function UI.ShowCopyBox(title, hint, text)
 		copy:SetScript("OnDragStart", copy.StartMoving)
 		copy:SetScript("OnDragStop", copy.StopMovingOrSizing)
 		tinsert(UISpecialFrames, "ItineraireCopy")
-		copy.titleText = copy:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-		copy.titleText:SetPoint("TOP", 0, -12)
+		copy.titleText = Skin.Header(copy, "Itinéraire", "Interface\\Icons\\INV_Misc_Note_01")
 		copy.hint = copy:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-		copy.hint:SetPoint("TOPLEFT", 16, -38)
+		copy.hint:SetPoint("TOPLEFT", 16, -34)
 		copy.hint:SetPoint("RIGHT", -16, 0)
 		copy.hint:SetJustifyH("LEFT")
 		local close = CreateFrame("Button", nil, copy, "UIPanelCloseButton")
@@ -1390,23 +1739,23 @@ function UI.ShowCopyBox(title, hint, text)
 		end)
 		scroll:SetScrollChild(edit)
 		copy.edit = edit
-		local select = CreateFrame("Button", nil, copy, "UIPanelButtonTemplate")
-		select:SetSize(150, 22)
-		select:SetPoint("BOTTOMLEFT", 14, 12)
-		select:SetText("Tout sélectionner")
-		select:SetScript("OnClick", function()
+		local select = Skin.Button(copy, "Tout sélectionner", 150, 22, function()
 			copy.edit:SetFocus()
 			copy.edit:HighlightText()
 		end)
-		local done = CreateFrame("Button", nil, copy, "UIPanelButtonTemplate")
-		done:SetSize(90, 22)
-		done:SetPoint("BOTTOMRIGHT", -14, 12)
-		done:SetText("Fermer")
-		done:SetScript("OnClick", function()
+		select:SetPoint("BOTTOMLEFT", 14, 12)
+		local done = Skin.Button(copy, "Fermer", 90, 22, function()
 			copy:Hide()
 		end)
+		done:SetPoint("BOTTOMRIGHT", -14, 12)
+		copy.buttons = { select, done }
 	end
 	copy.text = Plain(text)
+	Skin.Panel(copy, 0.97)
+	Skin.HeaderColors(copy)
+	for _, b in ipairs(copy.buttons) do
+		Skin.StyleButton(b)
+	end
 	copy.titleText:SetText(title or "Itinéraire")
 	copy.hint:SetText(hint or "")
 	copy.edit:SetText(copy.text)

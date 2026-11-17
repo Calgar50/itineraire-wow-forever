@@ -203,3 +203,17 @@ Notes techniques de chaque version (la plus récente en bas). Pour l'usage, voir
     prise/rendu automatiques coupés tant que le pilote le fait (`questiePrev` remis à l'arrêt). Bouton P, `/iti pilote`,
     raccourci, onglet « Pilote » (panneau élargi à 480), ligne « Pilote » dans le rapport.
   - Tests : `pilote_test.lua` (21 tests dans `run_all.sh`).
+- v2.2.0 (17/11/2026) : « l'aspect graphique, que ce soit parfait » — refonte visuelle, sans nouveau fichier
+  (un /reload suffit depuis la 2.1.0).
+  - `UI.Skin` (dans UI.lua) : cadres plats (WHITE8X8, bordure 1 px du thème, liseré d'accent de 2 px), barre de titre
+    avec icône et trait, boutons à icône (`IconButton`, `skinKey`, bordure verte = actif), boutons / onglets / choix
+    plats (`Skin.Button` + `SetSelected`), barres de progression (`Skin.Bar`), traits de séparation. Style « Blizzard »
+    (cadres d'infobulle du jeu) au choix : `ui.style`.
+  - Fenêtre : icônes du jeu à la place des boutons rouges « P E ? Q R … », étape en cours soulignée (liseré + numéro et
+    temps dorés), une ligne sur deux teintée, barre d'avancement des objectifs (`UI.StopProgress`), trait avant
+    « À savoir ».
+  - Bandeau : icône encadrée, barre d'avancement, « PILOTE », bordure verte sur place / orange en pause, s'allume à
+    chaque nouvelle étape (animation Alpha).
+  - Équipement : icône encadrée à la couleur de la qualité, petite icône de la source, onglets et boutons plats.
+  - Réglages, assistant, rapport, menus : même habillage ; intitulés soulignés.
+  - Bouton de l'objet de quête : raccourci affiché (`GetBindingKey`), bordure.

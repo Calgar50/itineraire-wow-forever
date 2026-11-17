@@ -29,7 +29,7 @@ print("après passer, 1re :", ns.plan.order[1].title)
 rows = Rows(); rows[2].scripts.OnClick(rows[2], "RightButton")
 Click("Suivre « "); Advance(3)
 print("suivi:", ns.session.focus, ns.plan.order[1].title)
-for _, f in ipairs(FRAMES) do if rawget(f, "text") == "..." then f.scripts.OnClick(f) end end
+for _, f in ipairs(FRAMES) do if rawget(f, "skinKey") == "options" then f.scripts.OnClick(f) end end
 Click("Inclure les donjons"); Advance(3)
 print("donjons:", ns.db.includeDungeons)
 SlashCmdList.ITINERAIRE("reset"); Advance(3)

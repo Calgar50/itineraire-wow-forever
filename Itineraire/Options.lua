@@ -19,7 +19,7 @@ local DEFAULT_UI = {
 	scale = 1, alpha = 0.82, width = 360, font = "normal", compact = false, icons = true, times = true,
 	summary = true, advice = true, theme = "bleu", locked = false, rows = 8,
 	hideCombat = false, hideInstance = false, fade = false, fadeAlpha = 0.4, autoDisable = true,
-	banner = true, bannerScale = 1, adviceCollapsed = false,
+	banner = true, bannerScale = 1, adviceCollapsed = false, style = "moderne",
 }
 Options.DEFAULT_UI = DEFAULT_UI
 
@@ -135,6 +135,9 @@ local function Header(parent, text, y)
 	local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	fs:SetPoint("TOPLEFT", 16, y)
 	fs:SetText(text)
+	local line = ns.UI.Skin.Line(parent, 0.25)
+	line:SetPoint("LEFT", fs, "RIGHT", 8, 0)
+	line:SetPoint("RIGHT", parent, "RIGHT", -16, 0)
 	return fs
 end
 
@@ -267,30 +270,24 @@ local function Choice(parent, label, key, list, x, y)
 	holder.buttons = {}
 	local prev
 	for _, item in ipairs(list) do
-		local b = CreateFrame("Button", nil, holder, "UIPanelButtonTemplate")
-		b:SetSize(62, 20)
-		b:SetText(item.label)
-		if prev then
-			b:SetPoint("LEFT", prev, "RIGHT", 2, 0)
-		else
-			b:SetPoint("TOPLEFT", 0, -15)
-		end
-		b:SetScript("OnClick", function()
+		local b = ns.UI.Skin.Button(holder, item.label, 62, 20, function()
 			S()[key] = item.key
 			holder:Refresh()
 			Apply()
+			Options.Refresh()
 		end)
+		if prev then
+			b:SetPoint("LEFT", prev, "RIGHT", 3, 0)
+		else
+			b:SetPoint("TOPLEFT", 0, -15)
+		end
 		b.key = item.key
 		holder.buttons[#holder.buttons + 1] = b
 		prev = b
 	end
 	holder.Refresh = function(self)
 		for _, b in ipairs(self.buttons) do
-			if b.key == S()[key] then
-				b:LockHighlight()
-			else
-				b:UnlockHighlight()
-			end
+			b:SetSelected(b.key == S()[key])
 		end
 	end
 	controls[#controls + 1] = holder
@@ -298,10 +295,10 @@ local function Choice(parent, label, key, list, x, y)
 end
 
 local function Button(parent, text, width, onClick)
-	local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-	b:SetSize(width, 22)
-	b:SetText(text)
-	b:SetScript("OnClick", onClick)
+	local b = ns.UI.Skin.Button(parent, text, width, 22, onClick)
+	controls[#controls + 1] = { Refresh = function()
+		ns.UI.Skin.StyleButton(b)
+	end }
 	return b
 end
 
@@ -396,6 +393,10 @@ local function BuildWindowPage(page)
 		return tostring(v)
 	end)
 	Choice(page, "Taille du texte", "font", ns.UI.FONTS, 20, -112)
+	Choice(page, "Style des cadres", "style", {
+		{ key = "moderne", label = "Moderne" },
+		{ key = "blizzard", label = "Blizzard" },
+	}, 240, -112)
 	Choice(page, "Thème", "theme", ns.UI.THEMES, 20, -156)
 
 	Header(page, "Contenu", -204)
@@ -488,20 +489,17 @@ local function RoleButtons(parent, y)
 	holder.buttons = {}
 	local prev
 	for _, r in ipairs(ns.Gear.ROLES or {}) do
-		local b = CreateFrame("Button", nil, holder, "UIPanelButtonTemplate")
-		b:SetSize(r.key == "auto" and 52 or 62, 20)
-		b:SetText(r.label)
-		if prev then
-			b:SetPoint("LEFT", prev, "RIGHT", 2, 0)
-		else
-			b:SetPoint("TOPLEFT", 0, 0)
-		end
-		b:SetScript("OnClick", function()
+		local b = ns.UI.Skin.Button(holder, r.label, r.key == "auto" and 52 or 62, 20, function()
 			ns.Gear.Config().role = r.key
 			ns.Gear.ResetWorn()
 			ns.Gear.Rescan()
 			Options.Refresh()
 		end)
+		if prev then
+			b:SetPoint("LEFT", prev, "RIGHT", 3, 0)
+		else
+			b:SetPoint("TOPLEFT", 0, 0)
+		end
 		b.key = r.key
 		holder.buttons[#holder.buttons + 1] = b
 		prev = b
@@ -509,11 +507,7 @@ local function RoleButtons(parent, y)
 	holder.Refresh = function(self)
 		local current = ns.char and ns.char.gear and ns.char.gear.role or "auto"
 		for _, b in ipairs(self.buttons) do
-			if b.key == current then
-				b:LockHighlight()
-			else
-				b:UnlockHighlight()
-			end
+			b:SetSelected(b.key == current)
 		end
 	end
 	controls[#controls + 1] = holder
@@ -641,11 +635,7 @@ local function ShowPage(key)
 	for _, def in ipairs(PAGES) do
 		local on = def.key == key
 		pages[def.key]:SetShown(on)
-		if on then
-			tabs[def.key]:LockHighlight()
-		else
-			tabs[def.key]:UnlockHighlight()
-		end
+		tabs[def.key]:SetSelected(on)
 	end
 	Options.page = key
 end
@@ -654,9 +644,6 @@ local function Build()
 	panel = CreateFrame("Frame", "ItineraireOptions", UIParent, "BackdropTemplate")
 	panel:SetSize(480, 600)
 	panel:SetPoint("CENTER")
-	panel:SetBackdrop(BACKDROP)
-	panel:SetBackdropColor(0.03, 0.03, 0.06, 0.96)
-	panel:SetBackdropBorderColor(0.4, 0.6, 0.9, 1)
 	panel:SetFrameStrata("DIALOG")
 	panel:SetClampedToScreen(true)
 	panel:SetMovable(true)
@@ -667,10 +654,9 @@ local function Build()
 	panel:Hide()
 	tinsert(UISpecialFrames, "ItineraireOptions")
 
-	local title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-	title:SetPoint("TOP", 0, -12)
-	title:SetText("Itinéraire — réglages")
+	ns.UI.Skin.Header(panel, "Itinéraire — réglages", "Interface\\Icons\\INV_Misc_Gear_01", 26)
 	local close = CreateFrame("Button", nil, panel, "UIPanelCloseButton")
+	close:SetSize(22, 22)
 	close:SetPoint("TOPRIGHT", -2, -2)
 
 	local prev
@@ -683,6 +669,7 @@ local function Build()
 		else
 			tab:SetPoint("TOPLEFT", 16, -36)
 		end
+		tab.tabKey = def.key
 		tabs[def.key] = tab
 		prev = tab
 		local page = CreateFrame("Frame", nil, panel)
@@ -719,6 +706,13 @@ local function Build()
 end
 
 function Options.Refresh()
+	if panel then
+		ns.UI.Skin.Panel(panel, 0.97)
+		ns.UI.Skin.HeaderColors(panel)
+		for key, tab in pairs(tabs) do
+			tab:SetSelected(key == Options.page)
+		end
+	end
 	for _, c in ipairs(controls) do
 		c:Refresh()
 	end
@@ -758,9 +752,7 @@ local function WizardRow(parent, y, question, options)
 	holder.buttons = {}
 	local prev
 	for i, opt in ipairs(options) do
-		local b = CreateFrame("Button", nil, holder, "UIPanelButtonTemplate")
-		b:SetSize(opt.width or 210, 22)
-		b:SetText(opt.label)
+		local b = ns.UI.Skin.Button(holder, opt.label, opt.width or 210, 22)
 		if prev then
 			b:SetPoint("LEFT", prev, "RIGHT", 6, 0)
 		else
@@ -786,13 +778,8 @@ local function WizardRow(parent, y, question, options)
 	function holder:Select(value)
 		self.value = value
 		for _, b in ipairs(self.buttons) do
-			if b.value == value then
-				b:LockHighlight()
-				b:SetText("|cff33ff33" .. b.labelText .. "|r")
-			else
-				b:UnlockHighlight()
-				b:SetText(b.labelText)
-			end
+			b:SetSelected(b.value == value)
+			b:SetText(b.value == value and ("|cff33ff33" .. b.labelText .. "|r") or b.labelText)
 		end
 	end
 	function holder:SetAvailable(on)
@@ -840,9 +827,6 @@ function Options.ShowWizard()
 		wizard = CreateFrame("Frame", "ItineraireWizard", UIParent, "BackdropTemplate")
 		wizard:SetSize(480, 400)
 		wizard:SetPoint("CENTER", 0, 40)
-		wizard:SetBackdrop(BACKDROP)
-		wizard:SetBackdropColor(0.03, 0.03, 0.06, 0.97)
-		wizard:SetBackdropBorderColor(1, 0.82, 0, 1)
 		wizard:SetFrameStrata("DIALOG")
 		wizard:SetClampedToScreen(true)
 		wizard:SetMovable(true)
@@ -850,9 +834,7 @@ function Options.ShowWizard()
 		wizard:RegisterForDrag("LeftButton")
 		wizard:SetScript("OnDragStart", wizard.StartMoving)
 		wizard:SetScript("OnDragStop", wizard.StopMovingOrSizing)
-		local title = wizard:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-		title:SetPoint("TOP", 0, -14)
-		title:SetText("Bienvenue dans Itinéraire !")
+		ns.UI.Skin.Header(wizard, "Bienvenue dans Itinéraire !", "Interface\\Icons\\INV_Misc_Map_01", 26)
 		local intro = wizard:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 		intro:SetPoint("TOPLEFT", 18, -40)
 		intro:SetPoint("RIGHT", -18, 0)
