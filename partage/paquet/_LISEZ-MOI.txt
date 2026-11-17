@@ -1,6 +1,6 @@
 ITINÉRAIRE — le trajet le plus court à travers ton journal de quêtes
 ===================================================================
-(WoW Forever, version 2.0.1 du 17/11/2026 — github.com/Calgar50/itineraire-wow-forever)
+(WoW Forever, version 2.1.0 du 17/11/2026 — github.com/Calgar50/itineraire-wow-forever)
 
 Ce paquet contient :
   - Installer-Itineraire.cmd   (l'installation en un double-clic)
@@ -81,9 +81,33 @@ CE QUE TU VOIS
 - LA FENÊTRE : les prochaines étapes numérotées (1, 2, 3…). Molette ou « Voir plus »
   pour la suite. En haut : nombre d'étapes, durée en fourchette (« 50–65 min ») et
   heure de fin. Le bloc « À savoir » se replie et se déplie d'un clic.
-  Boutons en haut à droite : E = équipement, ? = route des rendus, Q = quête à suivre,
+  Boutons en haut à droite : P = pilote automatique, E = équipement, ? = route des rendus, Q = quête à suivre,
   R = recalculer, … = menu.
 - LA FLÈCHE et le trajet en points (minicarte, carte) : Shortest Path Forever.
+
+
+PILOTE AUTOMATIQUE (allumé par défaut — bouton P, ou /iti pilote)
+------------------
+
+Comme les guides « autopilot » : tout ce que le jeu permet aux addons.
+  - il prend les quêtes chez les PNJ (pas les répétables ni les grises) et rend celles
+    qui sont finies (pas celles qui coûtent de l'or) ;
+  - s'il y a plusieurs récompenses, le cadre vert montre la meilleure ; il peut aussi la
+    prendre tout seul (réglage « Choisir aussi la récompense », coupé au départ) ;
+  - chez le maître de vol, il prend le vol prévu par le trajet ;
+  - il choisit la bonne ligne des dialogues (vol, maître de classe, marchand) quand
+    c'est l'étape en cours ;
+  - il passe les cinématiques ;
+  - chez un marchand qui répare : il répare et vend les objets gris ;
+  - chez ton maître de classe : il apprend toutes les techniques disponibles ;
+  - un BOUTON apparaît avec l'objet de quête à utiliser (MAJ + glisser pour le déplacer ;
+    raccourci clavier : Échap > Options > Raccourcis > AddOns > Itinéraire).
+MAJ (Shift) maintenue en parlant à un PNJ : il ne touche à rien, tu choisis toi-même.
+Ton personnage ne se déplace JAMAIS tout seul : le jeu l'interdit aux addons (un
+programme qui le ferait serait un bot, interdit et sanctionné).
+Quand le pilote prend et rend les quêtes, les réglages automatiques de Questie sont
+coupés (pour ne pas cliquer à deux) ; ils reviennent si tu arrêtes le pilote.
+Chaque partie se règle dans /iti reglages > Pilote.
 
 
 CE QUE FAIT ITINÉRAIRE
@@ -155,11 +179,12 @@ En groupe, Itinéraire te prévient aussi si un équipier a une version plus ré
 RÉGLAGES
 --------
 
-Bouton … > « Réglages (tout-en-un) » (ou /iti reglages), 4 onglets :
+Bouton … > « Réglages (tout-en-un) » (ou /iti reglages), 5 onglets :
   - Trajet : région d'abord, quêtes proposées, donjons, réparer, maître de classe,
     pierre de foyer, partage de groupe, bandeau (taille, position), ton rythme ;
   - Fenêtre : taille, transparence, nombre d'étapes, thème, mode compact… ;
   - Équipement : conseil de récompense, ligne dans la bulle des objets, ton rôle, l'analyse ;
+  - Pilote : chaque partie du pilote automatique ;
   - Questie & flèche : rendu / acceptation automatiques de Questie, les réglages utiles
     de Shortest Path (bouton « Réglages conseillés »), et l'état des mises à jour.
 
@@ -169,6 +194,7 @@ recalculer (et reprendre le guidage s'il était en pause).
 
 Commandes :
   /iti              afficher ou cacher la fenêtre
+  /iti pilote       pilote automatique : marche / arrêt
   /iti equipement   la fenêtre Équipement (et « Quel donjon faire ? » dans le menu …)
   /iti reglages     tous les réglages
   /iti assistant    les 5 questions du début

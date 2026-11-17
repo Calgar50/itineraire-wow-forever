@@ -575,10 +575,65 @@ local function BuildGearPage(page)
 		.. "« Data from ForeverDB.net (https://foreverdb.net) » : licences dans TIERS.txt. Itinéraire est sous licence GPL v3.", -268)
 end
 
+-- Pilote automatique : chaque partie se coupe à part.
+local function BuildPilotPage(page)
+	if ns.piloteMissing or not ns.Pilote.Config then
+		Note(page, "Le pilote arrive avec un nouveau fichier : quitte et relance complètement WoW.", -10)
+		return
+	end
+	local P = ns.Pilote
+	Header(page, "Pilote automatique", -6)
+	CheckFn(page, "Pilote automatique (marche / arrêt)",
+		"Comme les guides « autopilot » : tout ce que le jeu permet aux addons. Le personnage ne se déplace jamais tout seul (interdit par le jeu).",
+		function()
+			return P.Config().on == true
+		end, function(v)
+			P.SetOn(v)
+		end, 16, -24)
+	local items = {
+		{ "accept", "Prendre les quêtes", "Chez un PNJ : les quêtes proposées sont acceptées (pas les répétables, ni celles que tu as « passées »)." },
+		{ "grey", "… mais pas les quêtes grises (trop faciles)", "Les quêtes grises restent à toi." },
+		{ "turnin", "Rendre les quêtes terminées", "Rendues dès que tu parles au PNJ (pas les répétables, ni celles qui coûtent de l'or)." },
+		{ "reward", "Choisir aussi la récompense quand il y en a plusieurs", "La récompense conseillée (cadre vert) est prise d'office. Sinon : c'est toi qui choisis." },
+		{ "gossip", "Dialogues utiles selon l'étape", "Chez le maître de vol (si le trajet vole), le maître de classe ou le marchand (si c'est l'étape) : la bonne ligne du dialogue est choisie." },
+		{ "flights", "Prendre le vol prévu par le trajet", "Chez le maître de vol : la destination calculée par Shortest Path est prise d'office." },
+		{ "cinematics", "Passer les cinématiques", "Les cinématiques et vidéos du jeu sont passées." },
+		{ "merchant", "Réparer et vendre les objets gris", "Chez un marchand qui répare : réparation (si tu as l'or) et vente des objets gris, un par un." },
+		{ "trainer", "Apprendre les techniques chez le maître de classe", "Tout ce qui est disponible et payable est appris." },
+		{ "itemButton", "Bouton de l'objet de quête à utiliser", "Un bouton (MAJ + glisser pour le déplacer) avec l'objet de quête de l'étape ; raccourci : Échap > Options > Raccourcis > Itinéraire." },
+	}
+	for k, item in ipairs(items) do
+		local key = item[1]
+		CheckFn(page, item[2], item[3], function()
+			return P.Config()[key] ~= false
+		end, function(v)
+			P.Config()[key] = v
+			if key == "accept" or key == "turnin" then
+				P.SyncQuestie()
+			elseif key == "itemButton" then
+				P.UpdateButton()
+			end
+		end, key == "grey" and 40 or 30, -52 - (k - 1) * 24)
+	end
+	Note(page, "MAJ (Shift) maintenue en parlant à un PNJ : le pilote ne touche à rien, tu choisis toi-même.\n"
+		.. "Si le jeu bloque une action, cette partie se coupe toute seule (le rapport le dit).\n"
+		.. "Questie : quand le pilote prend et rend les quêtes, les réglages automatiques de Questie sont coupés"
+		.. " (remis si tu arrêtes le pilote).", -300)
+	local reset = Button(page, "Replacer le bouton d'objet", 190, function()
+		if not InCombatLockdown() and ItineraireItemButton then
+			ns.db.ui.itemButtonPos = nil
+			ItineraireItemButton:ClearAllPoints()
+			ItineraireItemButton:SetPoint("TOP", UIParent, "TOP", -190, -150)
+		end
+	end)
+	reset:SetPoint("TOPLEFT", 14, -372)
+end
+
 local PAGES = {
 	{ key = "trajet", label = "Trajet", build = BuildRoutePage, width = 72 },
 	{ key = "fenetre", label = "Fenêtre", build = BuildWindowPage, width = 78 },
 	{ key = "equipement", label = "Équipement", build = BuildGearPage, width = 96 },
+	{ key = "pilote", label = "Pilote", build = BuildPilotPage, width = 64 },
 	{ key = "addons", label = "Questie & flèche", build = BuildAddonsPage, width = 124 },
 }
 
@@ -597,7 +652,7 @@ end
 
 local function Build()
 	panel = CreateFrame("Frame", "ItineraireOptions", UIParent, "BackdropTemplate")
-	panel:SetSize(420, 600)
+	panel:SetSize(480, 600)
 	panel:SetPoint("CENTER")
 	panel:SetBackdrop(BACKDROP)
 	panel:SetBackdropColor(0.03, 0.03, 0.06, 0.96)
@@ -669,7 +724,7 @@ function Options.Refresh()
 	end
 end
 
--- `page` : « trajet », « fenetre », « equipement » ou « addons » (sinon l'onglet précédent).
+-- `page` : « trajet », « fenetre », « equipement », « pilote » ou « addons » (sinon l'onglet précédent).
 function Options.Toggle(show, page)
 	if not panel then
 		Build()

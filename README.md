@@ -29,6 +29,12 @@ Il ne suit pas un guide figé : le trajet se recalcule à chaque quête prise, r
   Les objets sont notés avec leurs vraies caractéristiques (celles du jeu) : poids par classe tirés des guides,
   14 puissance d'attaque = 1 DPS d'arme, armure comptée en vie effective, et le rôle (tank, mêlée, distance, sorts,
   soins — deviné d'après tes talents, réglable). Les taux de butin ne sont connus ni du jeu ni des bases de données.
+- **Le pilote automatique** (comme les guides « autopilot », allumé par défaut, bouton P ou `/iti pilote`) : il prend
+  et rend les quêtes, choisit la bonne ligne des dialogues selon l'étape, prend chez le maître de vol le vol prévu par
+  le trajet, passe les cinématiques, répare et vend les objets gris, apprend tes techniques chez le maître de classe, et
+  affiche un bouton (avec raccourci) pour l'objet de quête à utiliser maintenant. Option : prendre aussi la récompense
+  conseillée. MAJ (Shift) en parlant à un PNJ : tu reprends la main. Le personnage ne se déplace jamais tout seul : le
+  jeu l'interdit aux addons. Si le jeu bloque une action, cette partie se coupe toute seule.
 - **Les quêtes que Questie ne sait pas placer** : Itinéraire prend le repère que le jeu dessine sur la carte (et
   DonData s'il est installé), au lieu de les laisser de côté.
 - **À plusieurs** (2 à 5 joueurs, désactivé par défaut) : le chef de groupe calcule un seul trajet avec les
@@ -75,8 +81,9 @@ depuis 10 minutes et que WoW est fermé**. Les nouvelles versions comptent au la
 | Commande | Effet |
 | --- | --- |
 | `/iti` | afficher ou cacher la fenêtre |
+| `/iti pilote` | pilote automatique : marche / arrêt |
 | `/iti equipement` | la fenêtre Équipement |
-| `/iti reglages` | tous les réglages (Trajet, Fenêtre, Équipement, Questie & flèche) |
+| `/iti reglages` | tous les réglages (Trajet, Fenêtre, Équipement, Pilote, Questie & flèche) |
 | `/iti assistant` | les 5 questions du début |
 | `/iti rendus` | route des rendus (seulement les quêtes terminées) |
 | `/iti r` | recalculer |
@@ -114,8 +121,8 @@ Itinéraire s'appuie sur le travail d'autres projets (détail et licences : `THI
   entraîneurs (Finddon) ;
 - [All The Things](https://github.com/ATTWoWAddon/AllTheThings), [CMaNGOS classic-db](https://github.com/cmangos/classic-db)
   et **Data from ForeverDB.net (https://foreverdb.net)** ;
-- le modèle de note des objets et les précautions propres à Forever (fenêtre de quête, données « secrètes ») viennent
-  de DonData et Questdon.
+- le modèle de note des objets, la prise et le rendu automatiques des quêtes, la vente des objets gris et les
+  précautions propres à Forever (fenêtre de quête, données « secrètes ») viennent de DonData et Questdon (MIT).
 
 ## Licence
 

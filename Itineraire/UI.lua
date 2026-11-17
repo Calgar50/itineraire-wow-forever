@@ -321,6 +321,18 @@ local STATUS_COLOR = {
 	["à rendre"] = "ff00ff00", ["sur le trajet"] = "ffffffff", ["JcJ"] = "ffff9933",
 }
 
+-- Bouton « P » allumé tant que le pilote automatique est actif.
+function UI.SetPilote(on)
+	local b = buttons and buttons.pilote
+	if b then
+		if on then
+			b:LockHighlight()
+		else
+			b:UnlockHighlight()
+		end
+	end
+end
+
 -- Bouton « ? » allumé tant que la route des rendus est active.
 function UI.SetTurnins(on)
 	local b = buttons and buttons.turnins
@@ -387,6 +399,15 @@ local function OptionsMenu()
 			text = "Réglages (tout-en-un : trajet, Questie, flèche)…",
 			func = function()
 				ns.Options.Toggle(true, "trajet")
+			end,
+		},
+		{
+			text = "Pilote automatique (quêtes, vols, marchand, maître…)",
+			checked = not ns.piloteMissing and ns.Pilote.Config().on == true,
+			func = function()
+				if not ns.piloteMissing then
+					ns.Pilote.SetOn(not ns.Pilote.Config().on)
+				end
 			end,
 		},
 		{
@@ -704,6 +725,14 @@ function UI.Create()
 		ns.GearUI.Toggle()
 	end)
 	buttons.gear:SetPoint("RIGHT", buttons.turnins, "LEFT", -2, 0)
+	buttons.pilote = SmallButton("P", "Pilote automatique (allumé = actif) : il prend et rend les quêtes, prend le vol prévu, passe les cinématiques, répare et vend les objets gris, apprend tes techniques. MAJ en parlant à un PNJ : tu reprends la main. Clic : marche / arrêt.", function()
+		if ns.piloteMissing then
+			ns.Print("le pilote arrive avec un nouveau fichier : quitte et relance complètement WoW.")
+			return
+		end
+		ns.Pilote.SetOn(not ns.Pilote.Config().on)
+	end)
+	buttons.pilote:SetPoint("RIGHT", buttons.gear, "LEFT", -2, 0)
 
 	summary = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	summary:SetPoint("TOPLEFT", 10, -26)

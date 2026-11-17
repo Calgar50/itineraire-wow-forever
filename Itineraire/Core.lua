@@ -23,6 +23,11 @@ end
 if not ns.GearUI then
 	ns.GearUI = Shell()
 end
+-- Pilote.lua : nouveau en 2.1.0.
+if not ns.Pilote then
+	ns.piloteMissing = true
+	ns.Pilote = Shell()
+end
 
 -- Dépôt public d'Itinéraire (paquet, installateur, nouveautés).
 ns.HOME = "github.com/Calgar50/itineraire-wow-forever"
@@ -30,6 +35,11 @@ ns.HOME = "github.com/Calgar50/itineraire-wow-forever"
 ns.INSTALLER_WANTED = 2
 -- Nouveautés affichées une fois après une mise à jour (pas de flèches Unicode : police du jeu incertaine).
 ns.NEWS = {
+	["2.1.0"] = {
+		"PILOTE AUTOMATIQUE (comme les guides « autopilot ») : il prend et rend les quêtes, prend le vol prévu chez le maître de vol, passe les cinématiques, répare et vend les objets gris, apprend tes techniques chez le maître de classe.",
+		"Bouton de l'objet de quête à utiliser maintenant (raccourci clavier dans Échap > Options > Raccourcis > Itinéraire).",
+		"MAJ (Shift) en parlant à un PNJ : tu reprends la main. /iti pilote pour l'arrêter ou le relancer ; réglages : /iti reglages > Pilote.",
+	},
 	["2.0.0"] = {
 		"Fusion des données des addons Forever : butins de TOUS les donjons et raids (boss par boss), recettes de tes métiers, vendeurs de Forever.",
 		"Équipement, onglet Donjons : quel donjon faire pour ton équipement, et « Y aller » vers son entrée.",
@@ -587,6 +597,7 @@ function ns.ShowPlan(plan)
 	if not ok then
 		OnError("fenêtre : " .. tostring(err))
 	end
+	pcall(ns.Pilote.OnPlan) -- (bouton de l'objet de quête de l'étape)
 end
 
 -- Trajet reçu du guide du groupe.
@@ -947,6 +958,11 @@ local function WaitForQuestie()
 			end
 			-- Ligne « Itinéraire : +12 % pour toi » dans la bulle des objets.
 			pcall(ns.Gear.HookTooltips)
+			-- Pilote automatique (prise et rendu des quêtes, vols, marchand, maître, objet de quête…).
+			local okP, errP = pcall(ns.Pilote.Init)
+			if not okP then
+				OnError("pilote : " .. tostring(errP))
+			end
 			-- Recherche des améliorations d'équipement : après le 1er calcul du trajet (rien ne presse).
 			C_Timer.After(25, function()
 				pcall(ns.Gear.Rescan)
@@ -1262,6 +1278,10 @@ function ns.ReportText()
 		okD and #dungeons or 0, nRecipes, ext.PNJ_NB and tostring(ext.PNJ_NB) or "?",
 		ext.MARCHANDISES_NB and tostring(ext.MARCHANDISES_NB) or "?",
 		type(rawget(_G, "DonDataAPI")) == "table" and "présent" or "absent"))
+	local okPilote, piloteLine = pcall(ns.Pilote.ReportLine)
+	if okPilote and piloteLine then
+		Add(piloteLine)
+	end
 	local okGear, gearLine = pcall(ns.Gear.ReportLine)
 	Add(okGear and gearLine or ("Équipement : " .. (ns.gearMissing and "fichiers absents (relancer WoW)" or tostring(gearLine))))
 	local api = ns.Geo.SPApi()
@@ -1453,10 +1473,17 @@ SlashCmdList.ITINERAIRE = function(msg)
 		else
 			ns.GearUI.Toggle()
 		end
+	elseif msg == "pilote" or msg == "pilote on" or msg == "pilote off" or msg == "autopilote" then
+		if ns.piloteMissing then
+			ns.Print("le pilote arrive avec un nouveau fichier : quitte et relance complètement WoW.")
+		else
+			local on = msg == "pilote on" or ((msg == "pilote" or msg == "autopilote") and not ns.Pilote.Config().on)
+			ns.Pilote.SetOn(on)
+		end
 	elseif msg == "version" or msg == "maj" then
 		ns.Print("Itinéraire " .. tostring(AddonVersion(ADDON)) .. " · " .. ns.InstallerText() .. " · " .. ns.HOME)
 	else
-		ns.Print("/iti (fenêtre) · /iti equipement · /iti reglages · /iti assistant · /iti rapport · /iti bandeau · /iti r (recalculer) · /iti rendus · /iti reset · /iti rythme · /iti groupe · /iti donjons · /iti etat · /iti version · /iti stop · /iti debug")
+		ns.Print("/iti (fenêtre) · /iti pilote · /iti equipement · /iti reglages · /iti assistant · /iti rapport · /iti bandeau · /iti r (recalculer) · /iti rendus · /iti reset · /iti rythme · /iti groupe · /iti donjons · /iti etat · /iti version · /iti stop · /iti debug")
 	end
 end
 
@@ -1469,6 +1496,14 @@ BINDING_NAME_ITINERAIRE_RECALC = "Recalculer le trajet"
 BINDING_NAME_ITINERAIRE_SKIP = "Passer l'étape en cours"
 BINDING_NAME_ITINERAIRE_OPTIONS = "Ouvrir la personnalisation"
 BINDING_NAME_ITINERAIRE_TURNINS = "Route des rendus (quêtes terminées)"
+BINDING_NAME_ITINERAIRE_PILOTE = "Pilote automatique : marche / arrêt"
+_G["BINDING_NAME_CLICK ItineraireItemButton:LeftButton"] = "Utiliser l'objet de quête (pilote)"
+
+function Itineraire_Pilote()
+	if not ns.piloteMissing then
+		ns.Pilote.SetOn(not ns.Pilote.Config().on)
+	end
+end
 
 function Itineraire_Turnins()
 	ns.ToggleTurnins()

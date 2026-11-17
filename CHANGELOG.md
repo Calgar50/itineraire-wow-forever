@@ -184,3 +184,22 @@ Notes techniques de chaque version (la plus récente en bas). Pour l'usage, voir
 - v2.0.1 (17/11/2026) : fluidité de la recherche d'équipement en jeu (positions des vendeurs Questie gardées le temps
   d'une recherche, positions des PNJ Finddon et listes d'entraîneurs par métier gardées) ; un joueur venant d'une
   version d'avant le suivi des versions voit toutes les nouveautés (1.9.0 et 2.0.0).
+- v2.1.0 (17/11/2026) : « un autopilote comme sur Azeroth » — nouveau fichier `Pilote.lua` (relancer WoW).
+  - Prise / rendu des quêtes repris de Questdon (MIT) : `C_GossipInfo.SelectActiveQuest` (finies d'abord) puis
+    `SelectAvailableQuest` (pas répétables, pas grises si l'option, pas les « P:id » passées, journal pas plein),
+    `QUEST_GREETING` (ancienne liste), `AcceptQuest` / `AcknowledgeAutoAcceptQuest`, `ConfirmAcceptQuest` (escortes),
+    `CompleteQuest` (pas si `GetQuestMoneyToGet() > 0`), `GetQuestReward` si 0-1 choix ; plusieurs choix : option
+    « reward » (coupée par défaut) = la récompense conseillée par Gear (`Pilote.OnRewardChoice`). Valeurs secrètes = « non ».
+  - Dialogues utiles selon l'étape (`C_GossipInfo.GetOptions`, icône 132057 vol / 132058 maître / 132060 marchand).
+  - Vols : destination = 1re étape « flight » de `ShortestPathForever.API.Journey()` (trajet d'Itinéraire seulement),
+    nœud le plus proche (≤ 300 m) parmi `C_TaxiMap.GetAllTaxiNodes(GetTaxiMapID())` atteignables, `TakeTaxiNode`.
+  - Cinématiques (`CinematicFrame_CancelCinematic`, `MovieFrame:StopMovie`), marchand (`RepairAllItems`, vente des gris
+    un par un toutes les 0,15 s, MERCHANT_SHOW/CLOSED, on laisse faire Scrap/AutoVendor/Peddler/Leatrix/Questdon),
+    maître de classe (`BuyTrainerService` des « available », de la fin vers le début).
+  - Bouton sécurisé `ItineraireItemButton` (SecureActionButtonTemplate, type item, attributs hors combat seulement) :
+    objet utilisable (`C_Item.GetItemSpell`) qui est un `requiredSourceItems` (Questie) des quêtes des 3 prochaines
+    étapes, sinon un objet qui commence une quête ; raccourci `CLICK ItineraireItemButton:LeftButton`.
+  - MAJ = la main au joueur ; `ADDON_ACTION_BLOCKED`/`FORBIDDEN` coupe la partie concernée pour la session ; Questie :
+    prise/rendu automatiques coupés tant que le pilote le fait (`questiePrev` remis à l'arrêt). Bouton P, `/iti pilote`,
+    raccourci, onglet « Pilote » (panneau élargi à 480), ligne « Pilote » dans le rapport.
+  - Tests : `pilote_test.lua` (21 tests dans `run_all.sh`).

@@ -703,6 +703,9 @@ local function Advise()
 		return -- déjà dit pour cette fenêtre
 	end
 	lastAdviceKey = key
+	if ns.Pilote and ns.Pilote.OnRewardChoice then
+		pcall(ns.Pilote.OnRewardChoice, choice) -- (pilote : prendre la récompense conseillée, si l'option est active)
+	end
 	local item = choice.item
 	if choice.upgrade then
 		local e = item.entry
