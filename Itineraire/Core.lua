@@ -45,6 +45,10 @@ ns.HOME = "github.com/Calgar50/itineraire-wow-forever"
 ns.INSTALLER_WANTED = 4
 -- Nouveautés affichées une fois après une mise à jour (pas de flèches Unicode : police du jeu incertaine).
 ns.NEWS = {
+	["2.5.0"] = {
+		"Plans de talents pour TOUTES les classes et tous les rôles (tank, mêlée, distance, sorts, soins), écrits pour les arbres de Forever 1.60.1 ; choix du plan : /iti reglages > Pilote (ou /iti talents).",
+		"Les barres d'action se remplissent seules : les sorts de ta classe qui n'y sont pas vont dans les cases vides, et un sort passe à son rang supérieur dès que tu l'apprends (à la même place). Un sort que tu enlèves n'y revient plus.",
+	},
 	["2.4.0"] = {
 		"Le pilote met aussi tes TALENTS : il suit un plan selon ta classe et ton rôle (guerrier : Protection pour le tank, Armes sinon), arbres de Forever 1.60.1. Par défaut il demande avant chaque point (Apprendre / Plus tard / Toujours) ; /iti talents pour voir le plan.",
 		"Il ÉQUIPE tout seul ce qui t'améliore dans tes sacs (hors combat) ; un objet lié quand équipé : il demande d'abord. Tu remets ton ancien objet : il n'y touche plus.",

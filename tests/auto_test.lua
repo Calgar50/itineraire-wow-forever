@@ -251,3 +251,23 @@ assert(report:find("talents=BLOQU"), "blocage absent du rapport : " .. tostring(
 print(report:match("Autonomie[^\n]*"))
 SlashCmdList.ITINERAIRE("talents")
 print("OK autonomie")
+
+-- 7. Plans de toutes les classes : un plan par rôle que la fenêtre Équipement peut deviner, 51 points chacun.
+local ROLES = { WARRIOR = { "melee", "tank" }, PALADIN = { "healer", "tank", "melee" }, DRUID = { "caster", "tank", "healer", "melee" },
+	SHAMAN = { "caster", "melee", "healer" }, PRIEST = { "healer", "caster" }, HUNTER = { "ranged" }, ROGUE = { "melee" },
+	MAGE = { "caster" }, WARLOCK = { "caster" } }
+local count = 0
+for class, roles in pairs(ROLES) do
+	local plans = A.PLANS[class]
+	assert(plans, "pas de plans pour " .. class)
+	for _, role in ipairs(roles) do
+		assert(plans[role] and plans[role].role == role, class .. " : pas de plan « " .. role .. " »")
+	end
+	for key, plan in pairs(plans) do
+		count = count + 1
+		assert(#plan.steps == 51, class .. "/" .. key .. " : " .. #plan.steps .. " points")
+		assert(ROLES[class] and plan.label ~= "", "libellé")
+	end
+end
+print("plans : " .. count)
+print("OK plans de toutes les classes")

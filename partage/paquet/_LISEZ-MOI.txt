@@ -1,6 +1,6 @@
 ITINÉRAIRE — le trajet le plus court à travers ton journal de quêtes
 ===================================================================
-(WoW Forever, version 2.4.0 du 20/11/2026 — github.com/Calgar50/itineraire-wow-forever)
+(WoW Forever, version 2.5.0 du 20/11/2026 — github.com/Calgar50/itineraire-wow-forever)
 
 Ce paquet contient :
   - Installer-Itineraire.cmd   (l'installation en un double-clic)
@@ -116,8 +116,8 @@ Comme les guides « autopilot » : tout ce que le jeu permet aux addons.
   - chez ton maître de classe : il apprend toutes les techniques disponibles ;
   - un BOUTON apparaît avec l'objet de quête à utiliser (MAJ + glisser pour le déplacer ;
     raccourci clavier : Échap > Options > Raccourcis > AddOns > Itinéraire) ;
-  - TALENTS : il suit un plan selon ta classe et ton rôle (guerrier pour l'instant :
-    Protection pour le tank, Armes sinon). Par défaut, une petite fenêtre demande avant
+  - TALENTS : il suit un plan selon ta classe et ton rôle (les 9 classes : tank, mêlée,
+    distance, sorts ou soins, avec des variantes, par ex. Givre / Feu / Arcanes). Par défaut, une petite fenêtre demande avant
     chaque point : « Apprendre », « Plus tard » (redemande au niveau suivant) ou
     « Toujours » (il les met tout seul ensuite). Un point ne se reprend que contre de l'or
     chez le maître de classe, d'où la question. Le jeu apprend les talents par une courte
@@ -127,7 +127,11 @@ Comme les guides « autopilot » : tout ce que le jeu permet aux addons.
     moins +3 %). Objet « lié quand équipé » pas encore lié : il te demande d'abord. Tu
     remets ton ancien objet : il n'y touche plus. Un objet porté qui a un effet
     « Utiliser » (bijou…) n'est jamais remplacé tout seul ;
-  - SACS : un sac de tes sacs va dans un emplacement de sac libre.
+  - SACS : un sac de tes sacs va dans un emplacement de sac libre ;
+  - BARRES D'ACTION : les sorts de ta classe qui n'y sont pas vont dans les cases vides
+    des barres affichées, et un sort passe à son rang supérieur dès que tu l'apprends (à
+    la même place). Rien n'est déplacé ni retiré ; un sort que tu enlèves n'y revient
+    plus. Affiche une barre de plus si elles sont pleines (Échap > Options).
 MAJ (Shift) maintenue en parlant à un PNJ : il ne touche à rien, tu choisis toi-même.
 Ton personnage ne se déplace JAMAIS tout seul : le jeu l'interdit aux addons (un
 programme qui le ferait serait un bot, interdit et sanctionné).

@@ -21,7 +21,7 @@ local DEFAULTS = {
 	on = true, accept = true, turnin = true, reward = false, grey = true, gossip = true, flights = true,
 	cinematics = true, merchant = true, trainer = true, itemButton = true,
 	-- Autonomie.lua : talents (« demander », « auto », « non »), plan (« auto » = selon ton rôle), équipement, sacs
-	talents = "demander", talentPlan = "auto", equip = true, equipBoE = "demander", bags = true,
+	talents = "demander", talentPlan = "auto", equip = true, equipBoE = "demander", bags = true, actionbars = true,
 }
 Pilote.DEFAULTS = DEFAULTS
 Pilote.log = {}
@@ -800,7 +800,7 @@ local FUNC_KEY = {
 	StopMovie = "cinematics", RepairAllItems = "merchant", UseContainerItem = "merchant", BuyTrainerService = "trainer",
 	AcceptQuest = "accept", CompleteQuest = "turnin", GetQuestReward = "turnin", SelectOption = "gossip",
 	LearnTalent = "talents", EquipItemByName = "equip", EquipCursorItem = "equip", EquipPendingItem = "equip",
-	PickupContainerItem = "bags", PutItemInBag = "bags",
+	PickupContainerItem = "bags", PutItemInBag = "bags", PlaceAction = "actionbars", PickupSpell = "actionbars",
 }
 
 local function OnBlocked(addon, func)
@@ -891,7 +891,7 @@ function Pilote.ReportLine()
 	local cfg = Pilote.Config()
 	local parts = {}
 	for _, key in ipairs({ "accept", "turnin", "reward", "gossip", "flights", "cinematics", "merchant", "trainer", "itemButton",
-		"talents", "equip", "bags" }) do
+		"talents", "equip", "bags", "actionbars" }) do
 		local v = cfg[key]
 		parts[#parts + 1] = key .. (blocked[key] and "=BLOQUÉ" or type(v) == "string" and ("=" .. v) or (v and "" or "=non"))
 	end

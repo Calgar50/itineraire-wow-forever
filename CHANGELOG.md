@@ -294,3 +294,24 @@ Notes techniques de chaque version (la plus récente en bas). Pour l'usage, voir
   - Tests : `auto_test.lua` (API Classic factice : question, plan, combat, blocage ; équipement, lié quand équipé,
     objet remis, bijou à effet, sac) et `auto_traits_test.lua` (C_Traits factice : préparer + appliquer immobile,
     incantation interrompue, changements du joueur, rôle par onglet). 24 tests.
+- v2.5.0 (20/11/2026) : « généralise les plans pour toutes les classes et tous les rôles » + « les barres d'action se
+  remplissent seules ».
+  - 28 plans de talents pour les 9 classes, chaque rôle de la fenêtre Équipement couvert (tank, melee, ranged, caster,
+    healer) avec des variantes (`melee_fureur`, `ranged_precision`, `ranged_survie`, `melee_assassinat`,
+    `melee_finesse`, `healer_discipline`, `caster_feu`, `caster_arcanes`, `caster_demonologie`, `caster_destruction`).
+    Écrits sur les arbres de Forever 1.60.1 (ForeverDB, build 70959, effets nouveaux / changés compris) ; prérequis
+    probables mis d'abord (les flèches ne sont pas publiées). `Plan(rôle, libellé, …)` ; plan par défaut = la clé du
+    rôle ; ordre des choix : tank, mêlée, distance, sorts, soins. Réglages : bouton qui ouvre la liste des plans.
+  - `outils/plans_talents.py` : vérifie tous les plans contre les pages de ForeverDB (51 points, sorts, noms, onglets,
+    paliers de 5 points, rangs max, niveaux) ; rien n'est enregistré dans le dépôt.
+  - Barres d'action : sorts actifs appris de la classe (`C_SpellBook` : ligne de compétence au nom de la classe,
+    `GetSpellBookItemInfo` sans passifs, sans sorts futurs ni hors spé ; formes et postures écartées
+    via `GetShapeshiftFormInfo`) posés dans les cases vides des barres affichées (`MultiBar*Button.action`, puis la
+    barre principale si `GetBonusBarOffset() == 0`) par `C_Spell.PickupSpell` + `PlaceAction` ; rang supérieur
+    (`C_ActionBar.IsHighestSpellRank`, sinon « Rang N ») posé à la place de l'ancien ; un sort posé puis enlevé par le
+    joueur est noté (`ItineraireCharDB.actionbars.removed`) et ne revient plus ; hors combat, curseur vide ; réglage
+    `actionbars`, clés bloquées `PlaceAction` / `PickupSpell`. Événements `SPELLS_CHANGED`,
+    `LEARNED_SPELL_IN_SKILL_LINE` / `LEARNED_SPELL_IN_TAB` (enregistrés sous pcall).
+  - Tests : `auto_bars_test.lua` (rang supérieur, cases vides de la barre affichée, posture, passif, sort futur,
+    sort enlevé, combat, barre principale hors posture, blocage) ; `auto_test.lua` vérifie un plan par rôle pour
+    chaque classe (28 plans de 51 points). 25 tests.

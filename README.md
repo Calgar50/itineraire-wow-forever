@@ -45,14 +45,17 @@ Il ne suit pas un guide figé : le trajet se recalcule à chaque quête prise, r
   affiche un bouton (avec raccourci) pour l'objet de quête à utiliser maintenant. Option : prendre aussi la récompense
   conseillée. MAJ (Shift) en parlant à un PNJ : tu reprends la main. Le personnage ne se déplace jamais tout seul : le
   jeu l'interdit aux addons. Si le jeu bloque une action, cette partie se coupe toute seule. Il s'occupe aussi :
-  - de tes **talents** : il suit un plan selon ta classe et ton rôle (guerrier pour l'instant : Protection pour le tank,
-    Armes sinon ; arbres de Forever 1.60.1) ; par défaut il demande avant chaque point (Apprendre / Plus tard /
+  - de tes **talents** : il suit un plan selon ta classe et ton rôle (les 9 classes, chaque rôle : tank, mêlée,
+    distance, sorts, soins, avec des variantes ; arbres de Forever 1.60.1) ; par défaut il demande avant chaque point (Apprendre / Plus tard /
     Toujours), car un point ne se reprend que contre de l'or. Sur Forever, le jeu applique les talents par une courte
     incantation : il attend que tu sois immobile. `/iti talents` montre le plan ;
   - de ton **équipement** : il met tout seul (hors combat) l'objet de tes sacs qui t'améliore d'au moins 3 % ; un objet
     lié quand équipé pas encore lié : il demande ; tu remets ton ancien objet : il n'y touche plus ; un objet porté à
     effet « Utiliser » n'est pas remplacé ;
-  - de tes **sacs** : un sac de tes sacs va dans un emplacement de sac libre.
+  - de tes **sacs** : un sac de tes sacs va dans un emplacement de sac libre ;
+  - de tes **barres d'action** : les sorts de ta classe qui n'y sont pas vont dans les cases vides des barres
+    affichées, et un sort passe à son rang supérieur dès que tu l'apprends, à la même place. Rien n'est déplacé ni
+    retiré ; un sort que tu enlèves n'y revient plus.
 - **Les quêtes que Questie ne sait pas placer** : Itinéraire prend le repère que le jeu dessine sur la carte (et
   DonData s'il est installé), au lieu de les laisser de côté.
 - **À plusieurs** (2 à 5 joueurs, désactivé par défaut) : le chef de groupe calcule un seul trajet avec les
@@ -135,6 +138,8 @@ suffit pour qu'elle le laisse tranquille).
 - `installateur/` : `Installer-Itineraire.ps1` (PowerShell 5.1, ASCII + BOM + CRLF) et son lanceur `.cmd`.
 - `outils/paquet.py` : fabrique `dist/Itineraire-vX.Y.Z.zip` (l'addon, lu par l'installateur) et
   `dist/Itineraire-vX.Y.Z-paquet.zip` (installateur + addon + mode d'emploi) pour une release GitHub.
+- `outils/plans_talents.py` : vérifie les plans de talents d'`Autonomie.lua` contre les arbres de talents de
+  Forever publiés par ForeverDB (à relancer après un patch qui touche aux talents).
 - `outils/donnees.py` : réimporte les données reprises d'autres addons (commits épinglés, SHA-256 vérifié) dans
   `Itineraire/Donnees/`.
 - `CHANGELOG.md` : notes techniques de chaque version.

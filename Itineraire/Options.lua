@@ -682,17 +682,47 @@ local function BuildPilotPage(page)
 		cfg().talents = v
 		ns.Auto.Soon(0.3)
 	end, 16, -422)
-	ChoiceFn(page, "Plan de talents :", function()
-		local items = { { key = "auto", label = "Selon mon rôle", width = 104 } }
-		for _, p in ipairs(ns.Auto.PlanChoices() or {}) do
-			items[#items + 1] = { key = p.key, label = p.label, width = 170 }
+	-- Plan de talents : un bouton qui ouvre la liste des plans de ta classe (jusqu'à 4 par classe)
+	local planLabel = page:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	planLabel:SetPoint("TOPLEFT", 16, -462)
+	planLabel:SetText("Plan de talents :")
+	local function PlanText()
+		local key = cfg().talentPlan
+		if not key or key == "auto" then
+			local plan = ns.Auto.Plan and ns.Auto.Plan()
+			return "Selon mon rôle" .. (plan and (" : " .. plan.label) or "")
 		end
-		return items
-	end, function()
-		return cfg().talentPlan
-	end, function(v)
-		cfg().talentPlan = v
-	end, 16, -462)
+		for _, p in ipairs(ns.Auto.PlanChoices() or {}) do
+			if p.key == key then
+				return p.label
+			end
+		end
+		return tostring(key)
+	end
+	local planButton
+	planButton = Button(page, "", 300, function()
+		local items = { { text = "Plan de talents", title = true },
+			{ text = "Selon mon rôle (fenêtre Équipement)", checked = (cfg().talentPlan or "auto") == "auto", func = function()
+				cfg().talentPlan = "auto"
+				Options.Refresh()
+			end } }
+		for _, p in ipairs(ns.Auto.PlanChoices() or {}) do
+			items[#items + 1] = { text = p.label, checked = cfg().talentPlan == p.key, func = function()
+				cfg().talentPlan = p.key
+				Options.Refresh()
+				ns.Auto.Soon(0.3)
+			end }
+		end
+		if #items == 2 then
+			items[#items + 1] = { text = "(pas de plan pour ta classe)", title = true }
+		end
+		items[#items + 1] = { text = "Fermer" }
+		ns.UI.ShowMenu(items)
+	end)
+	planButton:SetPoint("TOPLEFT", 16, -477)
+	controls[#controls + 1] = { Refresh = function()
+		planButton:SetText(PlanText())
+	end }
 	LiveText(page, -504, function()
 		return ns.Auto.TalentsText()
 	end)
@@ -718,6 +748,14 @@ local function BuildPilotPage(page)
 		cfg().bags = v
 		ns.Auto.Soon(0.3)
 	end, 230, -548)
+	CheckFn(page, "Remplir les barres d'action (sorts qui manquent, rangs supérieurs)",
+		"Les sorts de ta classe qui ne sont sur aucune barre vont dans les cases vides des barres affichées ; un sort passe à son rang supérieur dès que tu l'apprends, à la même place. Rien n'est déplacé ni retiré ; un sort que tu enlèves n'y revient plus. Hors combat seulement.",
+		function()
+			return cfg().actionbars ~= false
+		end, function(v)
+			cfg().actionbars = v
+			ns.Auto.Soon(0.3)
+		end, 230, -572)
 end
 
 local PAGES = {
@@ -739,7 +777,7 @@ end
 
 local function Build()
 	panel = CreateFrame("Frame", "ItineraireOptions", UIParent, "BackdropTemplate")
-	panel:SetSize(480, 690)
+	panel:SetSize(480, 720)
 	panel:SetPoint("CENTER")
 	panel:SetFrameStrata("DIALOG")
 	panel:SetClampedToScreen(true)
