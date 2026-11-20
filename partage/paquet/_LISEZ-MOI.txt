@@ -1,6 +1,6 @@
 ITINÉRAIRE — le trajet le plus court à travers ton journal de quêtes
 ===================================================================
-(WoW Forever, version 2.3.0 du 20/11/2026 — github.com/Calgar50/itineraire-wow-forever)
+(WoW Forever, version 2.3.1 du 20/11/2026 — github.com/Calgar50/itineraire-wow-forever)
 
 Ce paquet contient :
   - Installer-Itineraire.cmd   (l'installation en un double-clic)
@@ -32,7 +32,9 @@ L'installateur :
   - ne remplace jamais une version plus récente que la sienne, et ne retélécharge rien
     si tout est déjà à jour ;
   - range les anciennes versions dans  _forever_\Interface\AddOns_sauvegardes
-    (il garde les 2 dernières).
+    (il garde les 2 dernières), et y range aussi un vieux ForeverCore installé à part
+    quand Shortest Path inclut le sien, plus récent (sinon message « ForeverCore …
+    est plus ancien que le ForeverCore … inclus dans vos addons » à la connexion).
 
 MISE À JOUR AUTOMATIQUE (si tu as répondu oui)
   - Windows relance l'installateur tout seul, en silence : à l'ouverture de session puis
@@ -62,7 +64,8 @@ PREMIER LANCEMENT
 -----------------
 
 1. Sur l'écran de choix du personnage, bouton « AddOns » : vérifie que Itinéraire,
-   Questie, QuestieDB, Shortest Path Forever, ForeverCore et DungeonJournal sont cochés.
+   Questie, QuestieDB, Shortest Path Forever et DungeonJournal sont cochés (ForeverCore
+   est inclus dans Shortest Path : plus besoin de l'installer à part).
 2. Connecte-toi. Après quelques secondes, l'ASSISTANT pose 5 questions (le choix
    conseillé est déjà sélectionné, il suffit de cliquer « C'est parti ! ») :
      - seul ou en groupe ;

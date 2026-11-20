@@ -5,7 +5,9 @@
       - Itineraire            (derniere version sur github.com/Calgar50/itineraire-wow-forever,
                                ou le dossier "Itineraire" fourni a cote de ce script s'il est plus recent)
       - Questie + QuestieDB   (derniere version publiee sur github.com/Questie/Questie)
-      - Shortest Path Forever + ForeverCore (derniere version sur github.com/cjber/shortest-path-forever)
+      - Shortest Path Forever (derniere version sur github.com/cjber/shortest-path-forever ; il inclut sa copie de
+                               ForeverCore : un ForeverCore installe a part et plus ancien, que plus aucun addon
+                               n'exige, est range dans les sauvegardes)
       - DungeonJournal        (ExehnTV, derniere version publiee sur curseforge.com/wow/addons/dungeonjournal) :
                                Itineraire lit ses donjons, butins et quetes de donjon pendant le jeu. Installe
                                s'il manque (sauf -SansDungeonJournal) ; la mise a jour automatique le tient a
@@ -62,12 +64,13 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'   # sinon les telechargements sont tres lents sous PowerShell 5.1
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 
-$InstallerVersion = 3
+$InstallerVersion = 4
 $UserAgent = 'Itineraire-Installateur'
 $ItiRepo = 'Calgar50/itineraire-wow-forever'
 $Sources = @(
-    @{ Repo = 'Questie/Questie'; Pattern = '^Questie-v[0-9][0-9A-Za-z.+-]*\.zip$'; Addons = @('Questie', 'QuestieDB'); Ignore = @('QuestieTrace') },
-    @{ Repo = 'cjber/shortest-path-forever'; Pattern = '^ShortestPathForever-v[0-9][0-9A-Za-z.+-]*-forever\.zip$'; Addons = @('ShortestPathForever', 'ForeverCore'); Ignore = @() }
+    @{ Repo = 'Questie/Questie'; Pattern = '^Questie-v[0-9][0-9A-Za-z.+-]*\.zip$'; Addons = @('Questie', 'QuestieDB'); Optional = @(); Ignore = @('QuestieTrace') },
+    # Depuis Shortest Path 1.43.9, ForeverCore n'est plus livre a part : il est inclus dans l'addon (Libs\ForeverCore).
+    @{ Repo = 'cjber/shortest-path-forever'; Pattern = '^ShortestPathForever-v[0-9][0-9A-Za-z.+-]*-forever\.zip$'; Addons = @('ShortestPathForever'); Optional = @('ForeverCore'); Ignore = @() }
 )
 $ItiSource = @{ Repo = $ItiRepo; Pattern = '^Itineraire-v[0-9]+(\.[0-9]+)*\.zip$'; Addons = @('Itineraire'); Ignore = @() }
 $OtherGuides = @('RXPGuides', 'AdventureGuideForever', 'Guidelime', 'ZygorGuidesViewer', 'ZygorGuidesViewerClassic', 'Polestar', 'QuestieTrace', 'Leveldon')
@@ -339,17 +342,22 @@ function Expand-Checked([string]$Zip, [string]$Stage, [string[]]$Wanted) {
 }
 
 # --- Installation d'un addon prepare dans $Stage ---------------------------------------------
+# Range un addon installe dans la sauvegarde du jour (rend son nouveau chemin, ou $null s'il n'etait pas la).
+function Move-ToBackup([string]$Name, [string]$AddOns, [string]$BackupRoot) {
+    $dest = Join-Path $AddOns $Name
+    if (-not (Test-Path -LiteralPath $dest)) { return $null }
+    if (-not (Test-Path -LiteralPath $BackupRoot)) {
+        [void](New-Item -ItemType Directory -Path $BackupRoot -Force)
+        Set-Content -LiteralPath (Join-Path $BackupRoot '.itineraire-sauvegarde') -Value 'Sauvegarde faite par Installer-Itineraire.ps1' -Encoding ASCII
+    }
+    $saved = Join-Path $BackupRoot $Name
+    Move-Item -LiteralPath $dest -Destination $saved
+    return $saved
+}
+
 function Install-Addon([string]$Name, [string]$From, [string]$AddOns, [string]$BackupRoot) {
     $dest = Join-Path $AddOns $Name
-    $saved = $null
-    if (Test-Path -LiteralPath $dest) {
-        if (-not (Test-Path -LiteralPath $BackupRoot)) {
-            [void](New-Item -ItemType Directory -Path $BackupRoot -Force)
-            Set-Content -LiteralPath (Join-Path $BackupRoot '.itineraire-sauvegarde') -Value 'Sauvegarde faite par Installer-Itineraire.ps1' -Encoding ASCII
-        }
-        $saved = Join-Path $BackupRoot $Name
-        Move-Item -LiteralPath $dest -Destination $saved
-    }
+    $saved = Move-ToBackup $Name $AddOns $BackupRoot
     try {
         Move-Item -LiteralPath $From -Destination $dest
     } catch {
@@ -357,6 +365,61 @@ function Install-Addon([string]$Name, [string]$From, [string]$AddOns, [string]$B
         if ($saved -and -not (Test-Path -LiteralPath $dest)) { Move-Item -LiteralPath $saved -Destination $dest }
         throw
     }
+}
+
+# --- ForeverCore separe ou inclus ------------------------------------------------------------
+# La copie de ForeverCore la plus recente incluse dans un addon (dossier Libs\ForeverCore, numero lu dans Begin.lua).
+function Get-EmbeddedForeverCore([string]$AddOns) {
+    $best = $null
+    foreach ($dir in @(Get-ChildItem -LiteralPath $AddOns -Directory -ErrorAction SilentlyContinue)) {
+        if ($dir.Name -eq 'ForeverCore') { continue }
+        $begin = Join-Path $dir.FullName 'Libs\ForeverCore\Begin.lua'
+        if (-not (Test-Path -LiteralPath $begin -PathType Leaf)) { continue }
+        $text = (Get-Content -LiteralPath $begin -TotalCount 5 -Encoding UTF8 -ErrorAction SilentlyContinue) -join "`n"
+        $m = [regex]::Match($text, 'ForeverCoreLoader\.Begin\([^,]*,\s*([0-9]{7,9})\s*,')
+        if (-not $m.Success) { continue }
+        $build = [long]$m.Groups[1].Value
+        $v = '{0}.{1}.{2}' -f [long][math]::Floor($build / 1000000), ([long][math]::Floor($build / 1000) % 1000), ($build % 1000)
+        if (-not $best -or (Compare-AddonVersion $best.Version $v) -gt 0) {
+            $best = [pscustomobject]@{ Version = $v; Addon = $dir.Name }
+        }
+    }
+    return $best
+}
+
+# Un addon (autre que $Name) qui exige $Name installe a part (## Dependencies / ## RequiredDeps de son .toc), ou $null.
+function Get-StandaloneUser([string]$Root, [string]$Name) {
+    foreach ($dir in @(Get-ChildItem -LiteralPath $Root -Directory -ErrorAction SilentlyContinue)) {
+        if ($dir.Name -eq $Name) { continue }
+        foreach ($toc in @(Get-ChildItem -LiteralPath $dir.FullName -Filter '*.toc' -File -ErrorAction SilentlyContinue)) {
+            foreach ($line in @(Get-Content -LiteralPath $toc.FullName -TotalCount 40 -Encoding UTF8 -ErrorAction SilentlyContinue)) {
+                if ($line -match '^##\s*(Dependencies|RequiredDeps|Dep[0-9]*)\s*:\s*(.+)$') {
+                    foreach ($dep in $Matches[2].Split(',')) {
+                        if ($dep.Trim() -eq $Name) { return $dir.Name }
+                    }
+                }
+            }
+        }
+    }
+    return $null
+}
+
+# Un ForeverCore installe a part et plus ancien que la copie incluse dans un addon : son chargeur previent a chaque
+# connexion ("ForeverCore x est plus ancien que le ForeverCore y inclus dans vos addons") et la vieille copie sert
+# la session. S'il n'est exige par aucun addon, il est range dans la sauvegarde (comme une ancienne version).
+function Remove-StaleForeverCore([string]$AddOns, [string]$BackupRoot) {
+    $installed = Get-AddonVersion (Join-Path $AddOns 'ForeverCore') 'ForeverCore'
+    if (-not $installed) { return $false }
+    $embedded = Get-EmbeddedForeverCore $AddOns
+    if (-not $embedded -or (Compare-AddonVersion $installed $embedded.Version) -le 0) { return $false }
+    $user = Get-StandaloneUser $AddOns 'ForeverCore'
+    if ($user) {
+        Say "   ForeverCore $installed (a part) est plus ancien que la copie $($embedded.Version) de $($embedded.Addon), mais $user l'exige : garde." DarkYellow
+        return $false
+    }
+    [void](Move-ToBackup 'ForeverCore' $AddOns $BackupRoot)
+    Say "   ForeverCore $installed (installe a part) retire : $($embedded.Addon) inclut le $($embedded.Version), plus recent (range dans AddOns_sauvegardes)." Green
+    return $true
 }
 
 # Garde les 2 dernieres sauvegardes faites par ce script (et seulement les siennes).
@@ -513,6 +576,11 @@ try {
             Say ("   {0,-22} installe : {1,-14} propose : {2} ({3})" -f $item.Name, $label, $item.Offered, $item.From)
         }
     }
+    $fcAlone = Get-AddonVersion (Join-Path $addOns 'ForeverCore') 'ForeverCore'
+    $fcEmbedded = Get-EmbeddedForeverCore $addOns
+    $fcAloneLabel = if ($fcAlone) { $fcAlone } else { 'non' }
+    $fcEmbeddedLabel = if ($fcEmbedded) { "$($fcEmbedded.Version) (dans $($fcEmbedded.Addon))" } else { '-' }
+    Say ("   {0,-22} a part : {1,-16} inclus : {2}" -f 'ForeverCore', $fcAloneLabel, $fcEmbeddedLabel)
     $djLabel = if ($djInstalled) { $djInstalled } else { 'absent' }
     $djOffer = if ($djLatest) { $djLatest.Version } elseif ($SansDungeonJournal) { 'non demande' } else { '?' }
     Say ("   {0,-22} installe : {1,-14} propose : {2} (CurseForge, ExehnTV)" -f 'DungeonJournal', $djLabel, $djOffer)
@@ -568,7 +636,7 @@ try {
             $zip = Save-Asset $asset $tempDir
             $srcStage = Join-Path $stage ($src.Addons[0])
             [void](New-Item -ItemType Directory -Path $srcStage)
-            $skipped = Expand-Checked $zip $srcStage ($src.Addons)
+            $skipped = Expand-Checked $zip $srcStage (@($src.Addons) + @($src.Optional))
             foreach ($s in $skipped) {
                 if ($src.Ignore -contains $s) { Say "   $s laisse de cote (il se dispute la fleche avec Itineraire)." DarkGray }
                 else { Say "   dossier inattendu ignore : $s" DarkYellow }
@@ -591,9 +659,40 @@ try {
                     Say ("   {0} : la version installee ({1}) est plus recente que {2}, gardee." -f $item.Name, $item.Installed, $offered) DarkYellow
                 }
             }
+            # Facultatifs (ForeverCore a part) : mis a jour s'ils sont deja installes, installes seulement si un addon
+            # de l'archive les exige ; absents de l'archive : rien a faire.
+            foreach ($name in @($src.Optional)) {
+                $staged = Join-Path $srcStage $name
+                if (-not (Test-Path -LiteralPath $staged -PathType Container)) { continue }
+                $installed = Get-AddonVersion (Join-Path $addOns $name) $name
+                if (-not $installed -and -not (Get-StandaloneUser $srcStage $name)) { continue }
+                $offered = Get-AddonVersion $staged $name
+                if ((Compare-AddonVersion $installed $offered) -gt 0) {
+                    Install-Addon $name $staged $addOns $backupRoot
+                    $was = if ($installed) { $installed } else { 'absent' }
+                    Say ("   {0} : {1} -> {2}" -f $name, $was, $offered) Green
+                    $changed.Add($name)
+                }
+            }
         } catch {
             Say ("   ERREUR pour {0} : {1} (les versions en place sont gardees)" -f $src.Repo, $_.Exception.Message) Red
             $failed.Add($src.Repo)
+        }
+    }
+
+    # ForeverCore installe a part mais plus ancien que la copie incluse dans Shortest Path : retire.
+    if (-not $SansTelechargement) {
+        Title 'ForeverCore'
+        try {
+            if (Remove-StaleForeverCore $addOns $backupRoot) { $changed.Add('ForeverCore (retire)') }
+            else {
+                $embedded = Get-EmbeddedForeverCore $addOns
+                if ($embedded) { Say "   ForeverCore $($embedded.Version) : inclus dans $($embedded.Addon), rien a faire." }
+                else { Say '   rien a faire.' }
+            }
+        } catch {
+            Say ("   ERREUR pour ForeverCore : {0}" -f $_.Exception.Message) Red
+            $failed.Add('ForeverCore')
         }
     }
 

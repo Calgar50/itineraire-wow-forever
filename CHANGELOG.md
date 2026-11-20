@@ -247,3 +247,16 @@ Notes techniques de chaque version (la plus récente en bas). Pour l'usage, voir
     (aussi en `-Auto`) ; `-SansDungeonJournal`. `ns.INSTALLER_WANTED = 3`.
   - Tests : `dj_test.lua` (faux DungeonJournal à la forme de la 2.1.0 ; 22 tests dans `run_all.sh`) ; vérifié aussi
     hors dépôt avec les vraies données 2.1.0 (35 donjons, 391 quêtes, 2 880 butins ; chargées sans io/os).
+- v2.3.1 (20/11/2026) : ForeverCore n'est plus livré à part par Shortest Path (1.43.9 : copie incluse dans
+  `ShortestPathForever\Libs\ForeverCore`, 1.15.4). L'installateur 3 attendait encore un dossier `ForeverCore` dans
+  l'archive (« Archive incomplete ») : Shortest Path était mis à jour mais l'ancien ForeverCore 1.15.1 installé à part
+  restait, et son chargeur prévenait à la connexion (« ForeverCore 1.15.1 est plus ancien que le ForeverCore 1.15.4
+  inclus dans vos addons »).
+  - Installateur v4 : ForeverCore facultatif dans l'archive de Shortest Path (mis à jour s'il est déjà installé à
+    part, installé seulement si un addon de l'archive l'exige) ; `Remove-StaleForeverCore` range dans
+    `AddOns_sauvegardes` un ForeverCore à part plus ancien que la copie incluse la plus récente (numéro lu dans
+    `Libs\ForeverCore\Begin.lua`, `ForeverCoreLoader.Begin(dossier, 1015004, …)`) si aucun `.toc` ne l'exige
+    (`## Dependencies` / `RequiredDeps`). Ligne « ForeverCore a part / inclus » dans l'état. `ns.INSTALLER_WANTED = 4`.
+  - Itinéraire s'inscrit au journal d'erreurs de ForeverCore via `ForeverCoreLoader.OnReady` quand le global
+    `ForeverCore` n'existe pas encore (copie incluse publiée à la connexion) ; le rapport dit quelle copie tourne
+    (`ForeverCoreLoader.Selected()`).

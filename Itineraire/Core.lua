@@ -37,9 +37,13 @@ end
 -- Dépôt public d'Itinéraire (paquet, installateur, nouveautés).
 ns.HOME = "github.com/Calgar50/itineraire-wow-forever"
 -- Version de l'installateur attendue par cette version d'Itinéraire (Installateur.lua est écrit par lui).
-ns.INSTALLER_WANTED = 3
+ns.INSTALLER_WANTED = 4
 -- Nouveautés affichées une fois après une mise à jour (pas de flèches Unicode : police du jeu incertaine).
 ns.NEWS = {
+	["2.3.1"] = {
+		"ForeverCore : Shortest Path inclut maintenant sa propre copie (plus récente). L'installateur 4 range l'ancien ForeverCore installé à part, qui déclenchait le message « ForeverCore … est plus ancien que le ForeverCore … inclus dans vos addons ».",
+		"Relance une fois l'installateur à la main (paquet sur la page des versions) : l'installateur 3 ne savait pas que ForeverCore n'est plus livré à part.",
+	},
 	["2.3.0"] = {
 		"DungeonJournal (ExehnTV) intégré, avec l'accord de son auteur : s'il est installé, Itinéraire lit ses donjons de Forever, boss, butins et quêtes de donjon pendant le jeu (donc toujours à jour avec lui).",
 		"Équipement : butins de tous ses donjons (nouveaux donjons de Forever compris) et récompenses des quêtes de donjon, avec où prendre la quête. Clic droit : « Voir dans DungeonJournal ».",
@@ -937,7 +941,7 @@ function ns.CheckVersions()
 	db.newsSeen = mine or db.newsSeen
 	local info = ns.InstallerInfo()
 	if info and info.version < ns.INSTALLER_WANTED then
-		ns.Print("un nouvel installateur est sorti (il installe aussi DungeonJournal) : télécharge le paquet sur " .. ns.HOME
+		ns.Print("un nouvel installateur est sorti (DungeonJournal, ForeverCore inclus dans Shortest Path) : télécharge le paquet sur " .. ns.HOME
 			.. " (onglet Releases) et relance-le. En attendant, tes mises à jour continuent.")
 	end
 	if ns.gearMissing then
@@ -1027,12 +1031,23 @@ events:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
 		ItineraireCharDB = Merge(type(ItineraireCharDB) == "table" and ItineraireCharDB or {}, DEFAULT_CHAR)
 		ns.db, ns.char = ItineraireDB, ItineraireCharDB
 		-- Journal d'erreurs partagé des addons Forever : il attrape aussi les erreurs hors calcul (fenêtre,
-		-- événements), gardées d'une session à l'autre ; /iti rapport les affiche.
-		local core = rawget(_G, "ForeverCore")
-		if type(core) == "table" and type(core.Register) == "function" then
+		-- événements), gardées d'une session à l'autre ; /iti rapport les affiche. ForeverCore installé à part est
+		-- là tout de suite ; la copie incluse dans Shortest Path (depuis sa 1.43.9) n'est publiée qu'à la connexion :
+		-- inscription quand son chargeur la dit prête.
+		local function RegisterForever(core)
+			if ns.forever or type(core) ~= "table" or type(core.Register) ~= "function" then
+				return
+			end
 			ItineraireDB.forever = type(ItineraireDB.forever) == "table" and ItineraireDB.forever or {}
 			local ok, ctx = pcall(core.Register, ADDON, { title = "Itinéraire", db = ItineraireDB.forever })
 			ns.forever = ok and type(ctx) == "table" and ctx or nil
+		end
+		local core = rawget(_G, "ForeverCore")
+		local loader = rawget(_G, "ForeverCoreLoader")
+		if type(core) == "table" then
+			RegisterForever(core)
+		elseif type(loader) == "table" and type(loader.OnReady) == "function" then
+			pcall(loader.OnReady, RegisterForever)
 		end
 	elseif event == "PLAYER_LOGIN" then
 		ns.Geo.Init()
@@ -1224,6 +1239,24 @@ local function Meta(name)
 	return (ok and v and tostring(v) or "?") .. (loaded and "" or " (NON CHARGÉ)")
 end
 
+-- ForeverCore : installé à part, ou la copie incluse dans un addon (Shortest Path) qui tourne pour la session.
+local function ForeverCoreText()
+	local loader = rawget(_G, "ForeverCoreLoader")
+	local ok, sel = false, nil
+	if type(loader) == "table" and type(loader.Selected) == "function" then
+		ok, sel = pcall(loader.Selected)
+	end
+	local text = Meta("ForeverCore")
+	if ok and type(sel) == "table" and type(sel.build) == "number" then
+		local b = sel.build
+		local running = string.format("%d.%d.%d", math.floor(b / 1000000), math.floor(b / 1000) % 1000, b % 1000)
+		text = (Loaded("ForeverCore") and text or "pas à part") .. " · en service " .. running
+			.. (sel.folder and (" (" .. tostring(sel.folder) .. ")") or "")
+			.. (type(sel.newest) == "number" and " · PLUS ANCIEN qu'une copie incluse : relance l'installateur" or "")
+	end
+	return text
+end
+
 local function Secs(s)
 	s = tonumber(s) or 0
 	if s >= 3600 then
@@ -1284,7 +1317,7 @@ function ns.ReportText()
 		p.map and ns.Geo.ZoneName(p.map) or "?", region and ns.Geo.ZoneName(region) or "?",
 		Grouped() and ("groupe de " .. (GetNumGroupMembers and GetNumGroupMembers() or "?")) or "solo"))
 	Add("Addons : Questie " .. Meta("Questie") .. " · QuestieDB " .. Meta("QuestieDB") .. " · Shortest Path "
-		.. Meta("ShortestPathForever") .. " · ForeverCore " .. Meta("ForeverCore"))
+		.. Meta("ShortestPathForever") .. " · ForeverCore " .. ForeverCoreText())
 	Add("Mises à jour : " .. ns.InstallerText())
 	local ext = ns.Data.Ext()
 	local nRecipes = 0

@@ -118,6 +118,14 @@ QUESTS[95005] = { Id = 95005, name = "Kill Inside", level = 15, xp = 500 }
 Enum = { TooltipDataType = { Item = 0 } }
 TooltipDataProcessor = { AddTooltipPostCall = function(kind, fn) TIP_FN = fn end }
 
+-- ForeverCore inclus dans Shortest Path (pas installé à part) : pas de global ForeverCore au chargement, seulement
+-- son chargeur, qui publie la copie à la connexion et appelle les OnReady.
+READY = {}
+ForeverCoreLoader = {
+	OnReady = function(cb) READY[#READY + 1] = cb return true end,
+	Selected = function() return { mode = "embedded", build = 1015004, folder = "ShortestPathForever" } end,
+}
+
 local files = { "Donnees/Butins.lua", "Donnees/Objets.lua", "Donnees/Entrees.lua", "Donnees/Recettes.lua", "Donnees/PNJ.lua",
 	"Donnees/Marchandises.lua", "Solver.lua", "Geo.lua", "Data.lua", "DungeonJournal.lua", "Planner.lua", "Guide.lua", "UI.lua",
 	"Options.lua", "Group.lua", "Gear.lua", "GearUI.lua", "Core.lua" }
@@ -260,4 +268,17 @@ assert(CALLS[#CALLS] == "boss:Ragefire Chasm:nil", "/iti dj gouffre : " .. tostr
 local report = ns.ReportText()
 assert(report:find("DungeonJournal 2.1.0 : lu %(2 donjons, 6 quêtes"), "rapport : " .. report:match("DungeonJournal[^\n]*"))
 print(report:match("DungeonJournal[^\n]*"))
+
+-- 9. ForeverCore inclus : Itinéraire s'inscrit quand le chargeur est prêt ; le rapport dit quelle copie tourne.
+assert(#READY == 1 and ns.forever == nil, "inscription à ForeverCore : attendre le chargeur")
+local registered
+READY[1]({ Register = function(name, opts)
+	registered = name
+	return { CaughtErrors = function() return {} end }
+end })
+assert(registered == "Itineraire" and ns.forever, "pas inscrit au journal d'erreurs de ForeverCore")
+report = ns.ReportText()
+assert(report:find("ForeverCore pas à part · en service 1%.15%.4 %(ShortestPathForever%)"), "rapport ForeverCore : "
+	.. tostring(report:match("ForeverCore[^\n]*")))
+print(report:match("Addons[^\n]*"))
 print("OK dungeonjournal")

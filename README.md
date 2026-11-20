@@ -57,7 +57,7 @@ Il ne suit pas un guide figé : le trajet se recalcule à chaque quête prise, r
 2. Quitte WoW, extrais le zip, double-clique sur **`Installer-Itineraire.cmd`**.
 
 L'installateur trouve le dossier de WoW Forever, installe ou met à jour **Itinéraire, Questie (+ QuestieDB),
-Shortest Path Forever (+ ForeverCore) et DungeonJournal** (depuis sa page CurseForge ; `-SansDungeonJournal` pour
+Shortest Path Forever (qui inclut sa copie de ForeverCore) et DungeonJournal** (depuis sa page CurseForge ; `-SansDungeonJournal` pour
 s'en passer) et propose d'activer la **mise à jour automatique**.
 
 Installation à la main : copie le dossier `Itineraire` du fichier `Itineraire-vX.Y.Z.zip` dans
@@ -87,7 +87,8 @@ suffit pour qu'elle le laisse tranquille).
 - Archives contrôlées entrée par entrée : rien ne peut s'écrire hors du dossier prévu ; seuls les dossiers
   d'addons attendus sont installés.
 - L'ancienne version de chaque addon est rangée dans `Interface\AddOns_sauvegardes` (les 2 dernières sont gardées) ;
-  une version installée plus récente n'est jamais remplacée.
+  une version installée plus récente n'est jamais remplacée. Un ForeverCore installé à part, plus ancien que la copie
+  incluse dans Shortest Path et exigé par aucun addon, y est rangé aussi.
 - **Le script ne se met jamais à jour tout seul** : seuls les addons (du code de jeu, sans accès à ton
   ordinateur) sont téléchargés. Un nouvel installateur se récupère à la main ; Itinéraire prévient dans le jeu
   quand il en sort un.
