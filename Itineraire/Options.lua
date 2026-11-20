@@ -749,17 +749,17 @@ local function BuildPilotPage(page)
 		ns.Auto.Soon(0.3)
 	end, 230, -548)
 	CheckFn(page, "Remplir les barres d'action (sorts qui manquent, rangs supérieurs)",
-		"Les sorts de ta classe qui ne sont sur aucune barre vont dans les cases vides des barres affichées ; un sort passe à son rang supérieur dès que tu l'apprends, à la même place. Un sort que tu enlèves n'y revient plus. Guerrier : bouton « Ranger mes barres par posture » (même rôle sur la même touche dans chaque posture, puis entretien ; /iti barres annuler pour revenir). Hors combat seulement.",
+		"Les sorts de ta classe qui ne sont sur aucune barre vont dans les cases vides des barres affichées ; un sort passe à son rang supérieur dès que tu l'apprends, à la même place. Un sort que tu enlèves n'y revient plus. Guerrier, druide, voleur : bouton « Ranger mes barres » (par posture, forme ou camouflage : même rôle sur la même touche partout, puis entretien ; /iti barres annuler pour revenir). Hors combat seulement.",
 		function()
 			return cfg().actionbars ~= false
 		end, function(v)
 			cfg().actionbars = v
 			ns.Auto.Soon(0.3)
 		end, 230, -572)
-	-- Guerrier : rangement par posture (même rôle sur la même touche dans chaque posture)
+	-- Guerrier, druide, voleur : rangement par posture, forme ou camouflage (même rôle sur la même touche partout)
 	local okClass, _, classToken = pcall(UnitClass, "player")
 	if okClass and type(ns.Auto.LAYOUTS) == "table" and ns.Auto.LAYOUTS[classToken or ""] then
-		local arrange = Button(page, "Ranger mes barres par posture", 220, function()
+		local arrange = Button(page, "Ranger mes barres par " .. tostring(ns.Auto.LAYOUTS[classToken].what), 220, function()
 			ns.Auto.BarsCommand("ranger")
 		end)
 		arrange:SetPoint("TOPLEFT", 230, -604)

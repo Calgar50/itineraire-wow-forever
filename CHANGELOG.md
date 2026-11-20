@@ -338,3 +338,18 @@ Notes techniques de chaque version (la plus récente en bas). Pour l'usage, voir
     `canaccessvalue`) : `UnitArmor` secret faisait planter `ArmorStamina` (Gear.lua:277, vu dans une vraie sauvegarde).
   - Tests : `auto_layout_test.lua` (rangement, objets déplacés, annulation exacte, Avant-garde, sort d'attente
     remplacé, case du joueur gardée, rangs, combat, refus de page) ; `dj_test.lua` (bouton, raccourci, menu). 26 tests.
+- v2.7.0 (20/11/2026) : barres rangées pour le druide (par forme) et le voleur (camouflé ou non).
+  - `LAYOUTS` généralisé : `pages` = { key, label, offset attendu, `form` (sorts de forme), `need`, `stealth`,
+    `within` (page qui doit aussi correspondre), `always` (page 0 = cases 1-12), `optional` (page rangée seulement une
+    fois vue), `transient` (ne compte pas pour la barre fixe), `keysFrom` / `usableAs` } ; `free` = pages d'un sort
+    absent de `only` (druide : humanoïde et sélénien) ; `weapon` = « shield », « dagger », « dagger2 ».
+  - Page vue en jeu : `Auto.ObservePage` (forme active via `GetShapeshiftFormInfo`, `IsStealthed`, `GetBonusBarOffset`)
+    sur `UPDATE_SHAPESHIFT_FORM` / `UPDATE_BONUS_ACTIONBAR` / `UPDATE_STEALTH` → `actionbars.seen` ; une page vue avec
+    la même case qu'une autre est ignorée (camouflage sans page à lui : ses techniques vont sur la barre fixe).
+    Sélénien et « félin en rôdant » : optionnels (pages incertaines dans Classic). `PageSlot(0, k) = k`.
+  - Druide (Forever) : Lucioles dans toutes les formes, Charge farouche en félin et en ours, Morsure primale et
+    Lacérer en ours, soins en humanoïde seulement. Voleur : Coup bas, Embuscade, Garrot, Assommer, Vol à la tire en
+    camouflage ; Préméditation sans camouflage (Forever) ; Camouflage (forme) pris à son rang réel.
+  - Barre fixe : un sort sur aucune page, ou absent d'une page non passagère où il marche.
+  - `outils/postures.py` vérifie les trois classes (123 sorts, 0 erreur) ; tests `auto_layout_druid_test.lua`,
+    `auto_layout_rogue_test.lua` (faux jeu commun `layout_mock.lua`). 28 tests.

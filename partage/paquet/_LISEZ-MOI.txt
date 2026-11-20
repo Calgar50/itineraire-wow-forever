@@ -1,6 +1,6 @@
 ITINÉRAIRE — le trajet le plus court à travers ton journal de quêtes
 ===================================================================
-(WoW Forever, version 2.6.0 du 20/11/2026 — github.com/Calgar50/itineraire-wow-forever)
+(WoW Forever, version 2.7.0 du 20/11/2026 — github.com/Calgar50/itineraire-wow-forever)
 
 Ce paquet contient :
   - Installer-Itineraire.cmd   (l'installation en un double-clic)
@@ -139,6 +139,13 @@ Comme les guides « autopilot » : tout ce que le jeu permet aux addons.
     8 interrompre, 9 provoquer, 12 survie… Les cris et les autres sorts vont sur la
     barre du dessus. Tes objets et macros sont déplacés, jamais effacés ; /iti barres
     annuler remet tout comme avant. /iti barres : chaque touche de chaque posture.
+    DRUIDE : pareil PAR FORME (humanoïde, félin, ours ; sélénien et félin en rôdant dès
+    que le jeu leur donne une page) : 1 Colère / Griffe / Mutiler, 3 Éclat lunaire /
+    Griffure / Lacérer, 6 Lucioles dans toutes les formes, 8 Récupération / Traquenard /
+    Sonner…
+    VOLEUR : pareil CAMOUFLÉ OU NON : 1 Attaque pernicieuse / Coup bas, 2 Attaque
+    sournoise / Embuscade, 5 Rupture / Garrot, 7 Suriner / Assommer, 8 Aiguillon perfide /
+    Vol à la tire, 12 Disparition / Camouflage…
 MAJ (Shift) maintenue en parlant à un PNJ : il ne touche à rien, tu choisis toi-même.
 Ton personnage ne se déplace JAMAIS tout seul : le jeu l'interdit aux addons (un
 programme qui le ferait serait un bot, interdit et sanctionné).
@@ -252,7 +259,7 @@ Commandes :
   /iti              afficher ou cacher la fenêtre
   /iti pilote       pilote automatique : marche / arrêt
   /iti talents      plan de talents suivi et prochain point
-  /iti barres       barres par posture (guerrier) : ranger, annuler, voir chaque touche
+  /iti barres       barres par posture, forme ou camouflage : ranger, annuler, voir
   /iti equipement   la fenêtre Équipement (et « Quel donjon faire ? » dans le menu …)
   /iti dj           ouvrir DungeonJournal (ou le bouton livre ; /iti dj <donjon>)
   /iti reglages     tous les réglages

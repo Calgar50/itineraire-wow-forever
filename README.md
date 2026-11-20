@@ -63,7 +63,11 @@ Il ne suit pas un guide figé : le trajet se recalcule à chaque quête prise, r
     interrompre, 9 provoquer, 12 survie…) ; les cris et autres sorts vont sur la barre du dessus. Postures exigées :
     celles de Forever (Coup de tonnerre aussi en Défensive, Charge en Défensive avec Avant-garde). Tes objets et
     macros sont déplacés vers une case libre, jamais effacés ; `/iti barres annuler` remet tout comme avant. Ensuite
-    un nouveau sort va à sa touche, et une case que tu changes reste à toi.
+    un nouveau sort va à sa touche, et une case que tu changes reste à toi. **Druide : par forme** (humanoïde, félin,
+    ours ; sélénien et félin en rôdant dès que le jeu leur donne une page) : 1 Colère / Griffe / Mutiler, 3 Éclat
+    lunaire / Griffure / Lacérer, 6 Lucioles partout, 8 Récupération / Traquenard / Sonner… **Voleur : camouflé ou
+    non** : 1 Attaque pernicieuse / Coup bas, 2 Attaque sournoise / Embuscade, 5 Rupture / Garrot, 7 Suriner /
+    Assommer, 12 Disparition / Camouflage…
 - **Les quêtes que Questie ne sait pas placer** : Itinéraire prend le repère que le jeu dessine sur la carte (et
   DonData s'il est installé), au lieu de les laisser de côté.
 - **À plusieurs** (2 à 5 joueurs, désactivé par défaut) : le chef de groupe calcule un seul trajet avec les
@@ -121,7 +125,7 @@ suffit pour qu'elle le laisse tranquille).
 | `/iti pilote` | pilote automatique : marche / arrêt |
 | `/iti talents` | plan de talents suivi et prochain point (et la question, s'il y a un point à mettre) |
 | `/iti equipement` | la fenêtre Équipement |
-| `/iti barres [ranger \| annuler \| non]` | barres par posture (guerrier) : voir chaque touche, ranger, revenir |
+| `/iti barres [ranger \| annuler \| non]` | barres par posture, forme ou camouflage (guerrier, druide, voleur) : voir chaque touche, ranger, revenir |
 | `/iti dj [donjon]` | ouvrir DungeonJournal (le donjon où tu es ou celui du trajet ; ou celui nommé) |
 | `/iti reglages` | tous les réglages (Trajet, Fenêtre, Équipement, Pilote, Questie & flèche) |
 | `/iti assistant` | les 5 questions du début |

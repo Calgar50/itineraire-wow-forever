@@ -23,7 +23,8 @@ tables change, voir `outils/donnees.py` : commits épinglés, empreintes SHA-256
   **Shortest Path Forever** quand ils sont installés.
 - Les **plans de talents** (`Autonomie.lua`) sont écrits pour Itinéraire ; les arbres de talents de Forever (noms,
   sorts, paliers, rangs) viennent de ForeverDB (https://foreverdb.net), extraits du client du jeu ; de même pour
-  les postures exigées par les techniques de guerrier (rangement des barres par posture, `outils/postures.py`).
+  les postures, formes et camouflage exigés par les techniques de guerrier, druide et voleur (rangement des barres,
+  `outils/postures.py`).
 - **DungeonJournal** (ExehnTV, https://www.curseforge.com/wow/addons/dungeonjournal), tous droits réservés à son
   auteur : quand il est installé, `Itineraire/DungeonJournal.lua` lit ses données en jeu (table
   `ForeverDungeonJournal_NS` : donjons, boss, butins, quêtes de donjon et leurs lieux) et ouvre ses pages.

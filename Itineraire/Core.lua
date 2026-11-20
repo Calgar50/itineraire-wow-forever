@@ -45,6 +45,9 @@ ns.HOME = "github.com/Calgar50/itineraire-wow-forever"
 ns.INSTALLER_WANTED = 4
 -- Nouveautés affichées une fois après une mise à jour (pas de flèches Unicode : police du jeu incertaine).
 ns.NEWS = {
+	["2.7.0"] = {
+		"Barres rangées aussi pour le DRUIDE (par forme : humanoïde, félin, ours ; sélénien et félin en rôdant dès que le jeu leur donne une page) et le VOLEUR (camouflé ou non). Même rôle sur la même touche partout : 6 Lucioles dans toutes les formes, 1 Attaque pernicieuse / Coup bas, 2 Attaque sournoise / Embuscade… Exigences de forme de Forever (Lucioles et Charge farouche en forme animale, Préméditation sans camouflage). /iti barres pour voir chaque touche.",
+	},
 	["2.6.0"] = {
 		"Guerrier : tes barres d'action RANGÉES PAR POSTURE. La barre principale change avec la posture ; chaque touche y garde le même rôle (1 Charge / Interception, 2 Frappe héroïque, 3 Fulgurance / Vengeance / Tourbillon, 5 Fracasser l'armure, 8 interrompre, 9 provoquer, 12 survie…) et les cris vont sur la barre du dessus. Une question au démarrage (Ranger / Plus tard / Jamais) ; /iti barres pour voir chaque touche, /iti barres annuler pour revenir.",
 		"Ensuite le pilote entretient le rangement : un nouveau sort va à sa touche ; une case que tu changes reste à toi. Tes objets et macros sont déplacés vers une case libre, jamais effacés.",

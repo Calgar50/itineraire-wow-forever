@@ -8,7 +8,8 @@
 --   - SACS : un sac de tes sacs va dans un emplacement de sac libre.
 --   - BARRES D'ACTION : les sorts de ta classe qui n'y sont pas vont dans les cases vides, et un sort passe à son rang
 --     supérieur dès que tu l'apprends (à la même place). Guerrier : barres RANGÉES PAR POSTURE (même rôle sur la même
---     touche dans chaque posture), proposé une fois, puis entretenu ; /iti barres.
+--     touche dans chaque posture), druide (par forme), voleur (camouflage) ; proposé une fois, puis entretenu ;
+--     /iti barres.
 -- Tout passe par le pilote (marche / arrêt, une case par partie) ; si le jeu bloque une action, la partie se coupe.
 --
 -- Les plans de talents sont écrits pour WoW Forever 1.60.1 (arbres du client, build 70959 : talents nouveaux ou
@@ -1791,35 +1792,45 @@ local function UpgradeRanks(byName, done)
 end
 
 -------------------------------------------------------------------------------
--- Barres rangées par posture (guerrier)
---   La barre principale change avec la posture (une page de 12 cases par posture). Chaque touche y garde le MÊME
---   RÔLE dans chaque posture : 1 engager (Charge / Interception), 3 riposte (Fulgurance / Vengeance / Tourbillon),
---   8 interrompre, 9 provoquer, 12 survie… ; Frappe héroïque (2), Fracasser l'armure (5) et la grosse frappe (4 :
---   Heurt de bouclier, Frappe mortelle ou Sanguinaire ; avant : Sursaut de victoire) sont sur la même touche partout.
---   Un sort absent d'une page où il marche (cris, Rage sanguinaire, Enchaînement…) va sur la BARRE FIXE : la première
---   barre affichée en plus de la principale (la même dans toutes les postures).
---   Postures requises : celles de Forever 1.60.1 (ForeverDB, build 70959) : Coup de tonnerre en Combat ET en
---   Défensive, Charge aussi en Défensive avec le talent Avant-garde.
+-- Barres rangées par posture, forme ou camouflage (guerrier, druide, voleur)
+--   La barre principale change de page avec la posture du guerrier, la forme du druide (félin, ours ; sélénien et
+--   « félin en rôdant » si le jeu leur donne une page) et le camouflage du voleur. Chaque touche y garde le MÊME RÔLE
+--   d'une page à l'autre (guerrier : 1 engager, 3 riposte, 8 interrompre, 9 provoquer, 12 survie… ; druide : 1 Griffe
+--   / Mutiler / Colère, 3 Griffure / Lacérer / Éclat lunaire, 6 Lucioles partout… ; voleur : 1 Attaque pernicieuse /
+--   Coup bas, 2 Attaque sournoise / Embuscade, 5 Rupture / Garrot, 7 Suriner / Assommer…).
+--   Un sort absent d'une page où il marche va sur la BARRE FIXE : la première barre affichée en plus de la
+--   principale (la même partout). Les pages passagères (camouflage, rôder) ne comptent pas pour la barre fixe.
+--   Exigences (posture, forme, camouflage) : celles de Forever 1.60.1 (ForeverDB, build 70959 ; outils/postures.py) :
+--   Coup de tonnerre en Combat ET en Défensive, Charge en Défensive avec Avant-garde, Lucioles dans toutes les formes,
+--   Charge farouche en félin et en ours, Préméditation sans camouflage…
+--   La page d'une forme est celle que le jeu montre vraiment : vue en jeu (`seen`), sinon celle de Classic (félin 1,
+--   ours 3, camouflage 1) ; les pages incertaines (sélénien, rôder) ne servent qu'une fois vues.
 --   Rangement complet (une question, une fois ; ou /iti barres ranger) : tes objets et macros des touches du
 --   rangement vont dans une case libre affichée (jamais effacés ; sans case libre, la touche reste à toi), et tout
 --   est noté pour /iti barres annuler. Ensuite, entretien : un nouveau sort va à sa touche si elle est vide (ou tenue
 --   par un sort que nous y avions mis en attendant) ; une case que tu changes reste à toi.
 -------------------------------------------------------------------------------
-local SHIELD_SPELLS = { [72] = true, [2565] = true, [871] = true, [23922] = true } -- demandent un bouclier
 local STRIKE = { 23922, 12294, 23881, 402927 } -- Heurt de bouclier, Frappe mortelle, Sanguinaire ; Sursaut de victoire
+local CAT = { [2] = true, [3] = true } -- druide : félin (et en rôdant)
+local BEAR = { [4] = true }
+local HUMAN = { [1] = true } -- soins : pas en sélénien
+local STEALTH = { [2] = true } -- voleur : camouflé
 local LAYOUTS = {
 	WARRIOR = {
 		version = 1,
+		what = "posture",
 		ask = "Ranger tes barres d'action par posture ?\nChaque touche garde le même rôle dans chaque posture (1 Charge, "
 			.. "3 Fulgurance / Vengeance, 8 interrompre, 9 provoquer, 12 survie…) ; les cris et les autres sorts vont sur "
 			.. "la barre du dessus. Tes objets et macros sont déplacés, jamais effacés. /iti barres annuler pour revenir.",
-		-- postures : leur sort et leur page de la barre principale (GetBonusBarOffset)
-		stances = {
-			{ spell = 2457, offset = 1, label = "Combat" },
-			{ spell = 71, offset = 2, label = "Défensive" },
-			{ spell = 2458, offset = 3, label = "Berserker" },
+		-- pages : leur forme (posture) et leur page de la barre principale (GetBonusBarOffset)
+		pages = {
+			{ key = "combat", label = "Combat", form = { 2457 }, offset = 1 },
+			{ key = "defensive", label = "Défensive", form = { 71 }, offset = 2 },
+			{ key = "berserker", label = "Berserker", form = { 2458 }, offset = 3 },
 		},
-		-- postures où un sort marche (absent = toutes) : [posture] = true, ou le talent qui l'y permet
+		-- arme demandée : « shield » (bouclier porté, ou rôle tank)
+		weapon = { [72] = "shield", [2565] = "shield", [871] = "shield", [23922] = "shield" },
+		-- pages où un sort marche (absent = toutes) : [page] = true, ou le talent qui l'y permet
 		only = {
 			[100] = { [1] = true, [2] = 1310317 }, -- Charge (Défensive : talent Avant-garde)
 			[7384] = { [1] = true }, -- Fulgurance
@@ -1843,8 +1854,8 @@ local LAYOUTS = {
 			[20252] = { [3] = true }, -- Interception
 			[6552] = { [3] = true }, -- Volée de coups
 		},
-		-- touches 1 à 12 : { rôle, { Combat }, { Défensive }, { Berserker } } ; dans chaque liste, le premier sort connu
-		-- (et permis dans la posture) qui n'est pas déjà sur la page
+		-- touches 1 à 12 : { rôle, { page 1 }, { page 2 }, … } ; dans chaque liste, le premier sort connu (et permis sur
+		-- la page) qui n'y est pas déjà
 		keys = {
 			{ "engager", { 100 }, { 100 }, { 20252 } },
 			{ "frappe héroïque", { 78 }, { 78 }, { 78 } },
@@ -1863,6 +1874,83 @@ local LAYOUTS = {
 		static = { 402927, 2687, 6673, 1160, 845, 772, 12975, 12809, 5246, 1161, 1240193, 12323, 12328, 1329555, 12292,
 			1310222, 18499, 72 },
 	},
+	DRUID = {
+		version = 1,
+		what = "forme",
+		ask = "Ranger tes barres d'action par forme ?\nChaque touche garde le même rôle dans chaque forme (1 Colère / "
+			.. "Griffe / Mutiler, 3 Éclat lunaire / Griffure / Lacérer, 6 Lucioles partout, 8 étourdir…) ; le reste va "
+			.. "sur la barre du dessus. Tes objets et macros sont déplacés, jamais effacés. /iti barres annuler pour revenir.",
+		free = { [1] = true, [5] = true }, -- un sort sans forme exigée : en humanoïde et en sélénien
+		pages = {
+			{ key = "humanoide", label = "Humanoïde", always = true, offset = 0 },
+			{ key = "felin", label = "Félin", form = { 768 }, offset = 1 },
+			{ key = "rodeur", label = "Félin en rôdant", need = { 5215 }, within = 2, stealth = true, offset = 2,
+				optional = true, transient = true, keysFrom = 2, usableAs = 2 },
+			{ key = "ours", label = "Ours", form = { 5487, 9634 }, offset = 3 },
+			{ key = "selenien", label = "Sélénien", form = { 24858 }, offset = 4, optional = true, keysFrom = 1 },
+		},
+		only = {
+			-- félin (et en rôdant)
+			[1082] = CAT, [5221] = CAT, [1822] = CAT, [1328618] = CAT, [1079] = CAT, [9005] = CAT, [6785] = CAT,
+			[8998] = CAT, [1850] = CAT, [5215] = CAT, [5225] = CAT, [1322605] = CAT,
+			-- ours
+			[6807] = BEAR, [779] = BEAR, [1328617] = BEAR, [407995] = BEAR, [99] = BEAR, [5211] = BEAR, [6795] = BEAR,
+			[22842] = BEAR, [5229] = BEAR, [5209] = BEAR,
+			-- Forever : Charge farouche en félin et en ours, Lucioles dans toutes les formes
+			[1238122] = { [2] = true, [3] = true, [4] = true },
+			[770] = { [1] = true, [2] = true, [3] = true, [4] = true, [5] = true },
+			-- soins et résurrections : en humanoïde seulement (le sélénien les interdit)
+			[5185] = HUMAN, [774] = HUMAN, [8936] = HUMAN, [18562] = HUMAN, [408120] = HUMAN, [740] = HUMAN,
+			[20484] = HUMAN, [437138] = HUMAN,
+		},
+		-- { rôle, { humanoïde }, { félin }, { rôder : comme félin }, { ours }, { sélénien : comme humanoïde } }
+		keys = {
+			{ "frappe", { 5176 }, { 1082 }, {}, { 6807 } }, -- Colère / Griffe / Mutiler
+			{ "frappe 2", { 2912 }, { 5221 }, {}, { 779 } }, -- Feu stellaire / Lambeau / Balayage
+			{ "saignement", { 8921 }, { 1822 }, {}, { 1328617 } }, -- Éclat lunaire / Griffure / Lacérer
+			{ "grosse frappe", { 5570, 16914 }, { 1328618 }, {}, { 407995 } }, -- Essaim d'insectes / Morsure féroce / Morsure primale
+			{ "finir / affaiblir", { 339 }, { 1079 }, {}, { 99 } }, -- Sarments / Déchirure / Rugissement démoralisant
+			{ "lucioles", { 770 }, { 770 }, {}, { 770 } },
+			{ "soigner / charger", { 5185 }, { 1238122 }, {}, { 1238122 } }, -- Toucher guérisseur / Charge farouche
+			{ "soigner / étourdir", { 774 }, { 9005 }, {}, { 5211 } }, -- Récupération / Traquenard / Sonner
+			{ "soigner / provoquer", { 8936 }, { 6785 }, {}, { 6795 } }, -- Rétablissement / Ravager / Grondement
+			{ "survie", { 18562, 408120 }, { 8998 }, {}, { 22842 } }, -- Prompte guérison / Dérobade / Régénération frénétique
+			{ "vitesse / rage", { 17116, 22812 }, { 1850 }, {}, { 5229 } }, -- Rapidité de la nature / Célérité / Enrager
+			{ "rôder / défi", { 29166, 22812 }, { 5215 }, {}, { 5209 } }, -- Innervation / Rôder / Rugissement provocateur
+		},
+		static = { 16689, 22812, 29166, 2782, 2893, 8946, 20484, 437138, 1126, 467, 21849, 2637, 16914, 740, 408120,
+			18562, 2908, 1322605, 5225, 18960 },
+	},
+	ROGUE = {
+		version = 1,
+		what = "camouflage",
+		ask = "Ranger tes barres d'action pour le camouflage ?\nLa barre principale change quand tu es camouflé ; chaque "
+			.. "touche y garde le même rôle (1 Attaque pernicieuse / Coup bas, 2 Attaque sournoise / Embuscade, 5 Rupture / "
+			.. "Garrot, 7 Suriner / Assommer…) ; les autres techniques vont sur la barre du dessus. Tes objets et macros "
+			.. "sont déplacés, jamais effacés. /iti barres annuler pour revenir.",
+		pages = {
+			{ key = "normal", label = "Normal", always = true, offset = 0 },
+			{ key = "camouflage", label = "Camouflé", need = { 1784 }, stealth = true, offset = 1, transient = true },
+		},
+		-- « dagger » : dague en main droite ; « dagger2 » : dagues dans les deux mains
+		weapon = { [53] = "dagger", [8676] = "dagger", [399956] = "dagger2" },
+		only = { [1833] = STEALTH, [8676] = STEALTH, [703] = STEALTH, [6770] = STEALTH, [921] = STEALTH },
+		keys = {
+			{ "générer", { 399956, 16511, 1752 }, { 1833, 8676, 703 } }, -- Mutilation, Hémorragie, Attaque pernicieuse / Coup bas
+			{ "dans le dos", { 53, 14278 }, { 8676, 703 } }, -- Attaque sournoise, Frappe fantomatique / Embuscade, Garrot
+			{ "finir", { 2098 }, { 2098 } }, -- Éviscération
+			{ "débiter", { 5171 }, { 5171 } }, -- Débiter
+			{ "saignement", { 1943 }, { 703, 1943 } }, -- Rupture / Garrot
+			{ "interrompre", { 1766 }, { 1766 } }, -- Coup de pied
+			{ "neutraliser", { 1776 }, { 6770 } }, -- Suriner / Assommer
+			{ "étourdir / voler", { 408 }, { 921 } }, -- Aiguillon perfide / Vol à la tire
+			{ "réaction / ouverture", { 14251, 8647 }, { 14183, 1725 } }, -- Riposte, Exposer l'armure / Préméditation, Distraction
+			{ "survie", { 5277 }, { 1725 } }, -- Évasion / Distraction
+			{ "fuite", { 2983 }, { 2983 } }, -- Sprint
+			{ "disparaître", { 1856, 1784 }, { 1784 } }, -- Disparition (sinon Camouflage) / Camouflage
+		},
+		static = { 1784, 1966, 2094, 1329283, 14177, 13877, 13750, 14185, 1316709, 8647, 1725, 1856, 53, 1842 },
+	},
 }
 Auto.LAYOUTS = LAYOUTS
 
@@ -1874,30 +1962,51 @@ local function SpellKnown(id)
 		or (C_SpellBook and Call(C_SpellBook.IsSpellKnown, id) == true) or false
 end
 
+-- Le sort marche-t-il sur la page `index` ? (absent de `only` : sur les pages `free`, sinon partout)
 local function Usable(layout, rank1, index)
 	local only = rank1 and layout.only[rank1]
 	if not only then
-		return true
+		return not layout.free or layout.free[index] == true
 	end
 	local v = only[index]
 	return v == true or (type(v) == "number" and SpellKnown(v))
 end
 
--- Bouclier porté, ou rôle tank : les sorts de bouclier ont leur touche.
-local function ShieldOK()
-	local link = Call(rawget(_G, "GetInventoryItemLink"), "player", 17)
-	if type(link) == "string" then
-		local fn = (C_Item and C_Item.GetItemInfoInstant) or rawget(_G, "GetItemInfoInstant")
-		local _, _, _, _, _, classID, subclassID = Call(fn, link)
-		if Num(classID) == 4 and Num(subclassID) == 6 then
-			return true
-		end
+local function HandSubclass(slot)
+	local link = Call(rawget(_G, "GetInventoryItemLink"), "player", slot)
+	if type(link) ~= "string" then
+		return nil
 	end
-	return ns.Gear and ns.Gear.Role and Call(ns.Gear.Role) == "tank" or false
+	local fn = (C_Item and C_Item.GetItemInfoInstant) or rawget(_G, "GetItemInfoInstant")
+	local _, _, _, _, _, classID, subclassID = Call(fn, link)
+	return Num(classID), Num(subclassID)
 end
 
--- Case d'une touche (1 à 12) de la page `offset` de la barre principale (posture 1 : cases 73 à 84, etc.).
+-- L'arme qu'il faut est-elle portée ? « shield » : bouclier (ou rôle tank) ; « dagger » : dague en main droite ;
+-- « dagger2 » : dagues dans les deux mains.
+local function WeaponOK(need)
+	if not need then
+		return true
+	end
+	if need == "shield" then
+		local c, s = HandSubclass(17)
+		return (c == 4 and s == 6) or (ns.Gear and ns.Gear.Role and Call(ns.Gear.Role) == "tank") or false
+	end
+	local c, s = HandSubclass(16)
+	local main = c == 2 and s == 15
+	if need == "dagger" then
+		return main
+	end
+	local c2, s2 = HandSubclass(17)
+	return main and c2 == 2 and s2 == 15
+end
+
+-- Case d'une touche (1 à 12) de la page `offset` de la barre principale : page 0 = cases 1 à 12 (hors posture),
+-- page 1 = 73 à 84, page 2 = 85 à 96, etc.
 local function PageSlot(offset, key)
+	if offset == 0 then
+		return key
+	end
 	local pages = Num(rawget(_G, "NUM_ACTIONBAR_PAGES")) or 6
 	local per = Num(rawget(_G, "NUM_ACTIONBAR_BUTTONS")) or 12
 	return (pages + offset - 1) * per + key
@@ -1908,9 +2017,9 @@ local function PagingProblem()
 	local offset = Num(Call(rawget(_G, "GetBonusBarOffset"))) or 0
 	local b = rawget(_G, "ActionButton1")
 	local slot = type(b) == "table" and ButtonSlot(b) or nil
-	if offset > 0 and slot and slot ~= PageSlot(offset, 1) then
-		return "la barre principale montre la case " .. slot .. " dans cette posture (page " .. offset .. ", attendu "
-			.. PageSlot(offset, 1) .. ")"
+	if slot and slot ~= PageSlot(offset, 1) then
+		return "la barre principale montre la case " .. slot .. " (page " .. offset .. ", attendu " .. PageSlot(offset, 1)
+			.. (offset == 0 and " : remets la page 1 de ta barre" or "") .. ")"
 	end
 end
 
@@ -1951,17 +2060,94 @@ local function ExtraBars()
 	return fixed or {}, others
 end
 
+-- La forme (ou posture) active : son sort, ou nil.
+local function ActiveForm()
+	for i = 1, Num(Call(rawget(_G, "GetNumShapeshiftForms"))) or 0 do
+		local _, active, _, spell = Call(GetShapeshiftFormInfo, i)
+		if active == true and Num(spell) then
+			return spell
+		end
+	end
+end
+
+local function PageMatches(layout, index, formName, stealthed)
+	local p = layout.pages[index]
+	if p.form then
+		local ok = false
+		for _, id in ipairs(p.form) do
+			if formName and SpellName(id) == formName then
+				ok = true
+			end
+		end
+		if not ok then
+			return false
+		end
+	end
+	if p.stealth and not stealthed then
+		return false
+	end
+	if p.within and not PageMatches(layout, p.within, formName, stealthed) then
+		return false
+	end
+	return p.always or p.form ~= nil or p.stealth ~= nil
+end
+
+-- La page que tu vois maintenant (la plus précise : « félin en rôdant » plutôt que « félin ») : son index, ou nil.
+local function CurrentPage(layout)
+	local form = ActiveForm()
+	local formName = form and SpellName(form)
+	local stealthed = Call(rawget(_G, "IsStealthed")) == true
+	local best, bestScore
+	for i, p in ipairs(layout.pages) do
+		if PageMatches(layout, i, formName, stealthed) then
+			local score = (p.form and 1 or 0) + (p.stealth and 1 or 0) + (p.within and 1 or 0)
+			if not best or score > bestScore then
+				best, bestScore = i, score
+			end
+		end
+	end
+	return best
+end
+
+-- Note la page que le jeu montre dans la forme actuelle (hors combat). Rend true si c'est nouveau.
+function Auto.ObservePage()
+	local layout = LAYOUTS[PlayerClass()]
+	if not layout or InCombat() then
+		return false
+	end
+	local index = CurrentPage(layout)
+	local offset = Num(Call(rawget(_G, "GetBonusBarOffset")))
+	if not (index and offset) then
+		return false
+	end
+	local state = BarState()
+	state.seen = type(state.seen) == "table" and state.seen or {}
+	local key = layout.pages[index].key
+	if state.seen[key] ~= offset then
+		state.seen[key] = offset
+		return true
+	end
+	return false
+end
+
 -- Ce que le rangement veut, d'après les sorts que tu connais : t.pages = { { offset, label, index, keys =
--- { [touche] = { id, name, role } } }, … } (postures apprises), t.static = { { id, name }, … } (barre fixe, dans
--- l'ordre), t.byName (sorts de ta classe) ; nil si ta classe n'a pas de rangement.
+-- { [touche] = { id, name, role } } }, … } (pages de ta barre principale), t.static = { { id, name }, … } (barre
+-- fixe, dans l'ordre), t.byName (sorts de ta classe) ; nil si ta classe n'a pas de rangement.
 function Auto.LayoutTargets()
 	local layout = LAYOUTS[PlayerClass()]
 	if not layout then
 		return nil
 	end
+	Auto.ObservePage()
 	local list, byName = Auto.ClassSpells()
-	local shield = ShieldOK()
 	local forms = FormSpells()
+	local formsByName = {}
+	for id in pairs(forms) do
+		local name = SpellName(id)
+		if name then
+			formsByName[name] = id
+		end
+	end
 	local rank1Of, order, all = {}, {}, {}
 	for _, s in ipairs(list) do
 		all[#all + 1] = s
@@ -1973,20 +2159,19 @@ function Auto.LayoutTargets()
 		end
 		return name
 	end
-	-- un sort des tableaux : son plus haut rang connu (un talent actif absent du grimoire de classe compte aussi)
+	-- un sort des tableaux : son plus haut rang connu (un talent actif absent du grimoire de classe, ou une forme comme
+	-- le Camouflage du voleur, compte aussi)
 	local function Known(rank1)
 		local name = Remember(rank1)
 		if not name then
 			return nil
 		end
-		if byName[name] then
-			return byName[name], name
+		local id = byName[name] or formsByName[name] or (SpellKnown(rank1) and rank1) or nil
+		if id and not byName[name] then
+			byName[name] = id
+			all[#all + 1] = { id = id, name = name }
 		end
-		if SpellKnown(rank1) then
-			byName[name] = rank1
-			all[#all + 1] = { id = rank1, name = name }
-			return rank1, name
-		end
+		return id, name
 	end
 	for i, id in ipairs(layout.static) do
 		local name = Remember(id)
@@ -1998,16 +2183,27 @@ function Auto.LayoutTargets()
 	for id in pairs(layout.only) do
 		Remember(id)
 	end
+	local seen = type(BarState().seen) == "table" and BarState().seen or {}
 	local t = { pages = {}, static = {}, byName = byName }
-	local placed = {} -- [nom] = { [posture] = true }
-	for index, st in ipairs(layout.stances) do
-		if forms[st.spell] or SpellKnown(st.spell) then
-			local page = { offset = st.offset, label = st.label, index = index, keys = {} }
+	local placed, usedOffsets = {}, {} -- placed[nom] = { [page] = true }
+	for index, p in ipairs(layout.pages) do
+		local known = p.always
+		for _, id in ipairs(p.form or p.need or {}) do
+			known = known or forms[id] or formsByName[SpellName(id) or ""] or SpellKnown(id)
+		end
+		local offset = Num(seen[p.key]) or p.offset
+		if p.optional and not (Num(seen[p.key]) and seen[p.key] > 0) then
+			known = false
+		end
+		if known and not usedOffsets[offset] then
+			usedOffsets[offset] = true
+			local page = { offset = offset, label = p.label, index = index, transient = p.transient, keys = {} }
 			local used = {}
+			local usableAs = p.usableAs or index
 			for key, row in ipairs(layout.keys) do
-				for _, rank1 in ipairs(row[index + 1] or {}) do
+				for _, rank1 in ipairs(row[(p.keysFrom or index) + 1] or {}) do
 					local id, name
-					if (shield or not SHIELD_SPELLS[rank1]) and Usable(layout, rank1, index) then
+					if Usable(layout, rank1, usableAs) and WeaponOK(layout.weapon and layout.weapon[rank1]) then
 						id, name = Known(rank1)
 					end
 					if id and not used[name] then
@@ -2022,12 +2218,12 @@ function Auto.LayoutTargets()
 			t.pages[#t.pages + 1] = page
 		end
 	end
-	-- barre fixe : un sort absent d'une page de posture où il marche
+	-- barre fixe : un sort sur aucune page, ou absent d'une page (pas passagère) où il marche
 	local rest = {}
 	for i, spell in ipairs(all) do
-		local missing = #t.pages == 0
+		local missing = not placed[spell.name]
 		for _, page in ipairs(t.pages) do
-			if not (placed[spell.name] and placed[spell.name][page.index])
+			if not page.transient and not (placed[spell.name] and placed[spell.name][page.index])
 				and Usable(layout, rank1Of[spell.name], page.index) then
 				missing = true
 			end
@@ -2101,12 +2297,12 @@ function Auto.ArrangeBars(force)
 		or type(rawget(_G, "PickupAction")) ~= "function" then
 		return nil, "barres d'action illisibles"
 	end
-	local t = Auto.LayoutTargets()
+	local t, layout = Auto.LayoutTargets()
 	if not t then
-		return nil, "pas de rangement par posture pour ta classe"
+		return nil, "pas de rangement pour ta classe"
 	end
 	if #t.pages == 0 then
-		return nil, "aucune posture apprise"
+		return nil, "rien à ranger : pas encore de " .. layout.what
 	end
 	local problem = PagingProblem()
 	if problem then
@@ -2117,7 +2313,7 @@ function Auto.ArrangeBars(force)
 	local byName = t.byName
 	local journal = force and {} or nil
 	local fixed, others = ExtraBars()
-	local res = { placed = {}, moved = 0, kept = {}, missing = 0, pages = t.pages }
+	local res = { placed = {}, moved = 0, kept = {}, missing = 0, pages = t.pages, what = layout.what }
 	UpgradeRanks(byName, res.placed)
 	local function Content(slot)
 		return SlotContent(slot, byName)
@@ -2291,8 +2487,8 @@ local function ReportArranged(res, force)
 		for _, p in ipairs(res.pages) do
 			labels[#labels + 1] = p.label
 		end
-		ns.Print(string.format("barres rangées par posture (%s) : %d sort(s) posé(s)%s. /iti barres pour voir chaque "
-			.. "touche, /iti barres annuler pour revenir.", table.concat(labels, ", "), #res.placed,
+		ns.Print(string.format("barres rangées par %s (%s) : %d sort(s) posé(s)%s. /iti barres pour voir chaque "
+			.. "touche, /iti barres annuler pour revenir.", res.what or "posture", table.concat(labels, ", "), #res.placed,
 			res.moved > 0 and (", " .. res.moved .. " objet(s) ou macro(s) déplacé(s) vers une case libre") or ""))
 	elseif #res.placed > 0 then
 		ns.Print("barres d'action : " .. table.concat(res.placed, ", ")
@@ -2362,13 +2558,14 @@ end
 function Auto.LayoutLines()
 	local t, layout = Auto.LayoutTargets()
 	if not t then
-		return { "barres : pas de rangement par posture pour ta classe (le pilote remplit seulement les cases vides)." }
+		return { "barres : pas de rangement pour ta classe (guerrier, druide et voleur seulement ; le pilote remplit les "
+			.. "cases vides)." }
 	end
 	local state = BarState()
 	local status = state.layout == layout.version and "rangées, entretenues par le pilote"
 		or state.layout == "non" and "pas rangées (/iti barres ranger pour le faire)"
 		or "pas encore rangées (/iti barres ranger)"
-	local lines = { "barres par posture : " .. status .. (type(state.journal) == "table"
+	local lines = { "barres par " .. layout.what .. " : " .. status .. (type(state.journal) == "table"
 		and (" · /iti barres annuler revient à l'état du " .. tostring(state.journal.at)) or "") }
 	for _, page in ipairs(t.pages) do
 		local parts = {}
@@ -2382,7 +2579,7 @@ function Auto.LayoutLines()
 	for _, s in ipairs(t.static) do
 		names[#names + 1] = s.name
 	end
-	lines[#lines + 1] = "barre du dessus (toutes postures) : " .. (#names > 0 and table.concat(names, ", ") or "-")
+	lines[#lines + 1] = "barre du dessus (partout) : " .. (#names > 0 and table.concat(names, ", ") or "-")
 	return lines
 end
 
@@ -2418,11 +2615,11 @@ function Auto.BarsCommand(arg)
 			ns.Print("barres : " .. tostring(fails) .. ".")
 		else
 			ns.Print("barres : rangement annulé" .. (fails > 0 and (" (" .. fails .. " case(s) changée(s) depuis, laissée(s) "
-				.. "telle(s) quelle(s))") or "") .. ". Plus d'entretien par posture (/iti barres ranger pour le refaire).")
+				.. "telle(s) quelle(s))") or "") .. ". Plus d'entretien du rangement (/iti barres ranger pour le refaire).")
 		end
 	elseif arg == "non" or arg == "stop" then
 		state.layout = "non"
-		ns.Print("barres : plus d'entretien par posture (/iti barres ranger pour le refaire).")
+		ns.Print("barres : plus d'entretien du rangement (/iti barres ranger pour le refaire).")
 	else
 		for _, line in ipairs(Auto.LayoutLines()) do
 			ns.Print(line)
@@ -2444,7 +2641,7 @@ local function AskLayout(layout)
 		{ label = "Plus tard" },
 		{ label = "Jamais", func = function()
 			BarState().layout = "non"
-			ns.Print("barres : pas de rangement par posture (/iti barres ranger quand tu veux).")
+			ns.Print("barres : pas de rangement (/iti barres ranger quand tu veux).")
 		end },
 	})
 end
@@ -2581,6 +2778,22 @@ local HANDLERS = {
 	CONFIG_COMMIT_FAILED = function(configID)
 		Auto.OnTraitsCommitted(configID, true)
 	end,
+	-- posture, forme ou camouflage : la page que le jeu montre (une page encore inconnue : on la range)
+	UPDATE_SHAPESHIFT_FORM = function()
+		if Auto.ObservePage() then
+			Soon(1)
+		end
+	end,
+	UPDATE_BONUS_ACTIONBAR = function()
+		if Auto.ObservePage() then
+			Soon(1)
+		end
+	end,
+	UPDATE_STEALTH = function()
+		if Auto.ObservePage() then
+			Soon(1)
+		end
+	end,
 	PLAYER_REGEN_ENABLED = function()
 		if Auto.pending then
 			Soon(1)
@@ -2622,6 +2835,15 @@ function Auto.TalentsText()
 		nextT and ("prochain : " .. tostring(nextT.name) .. " " .. nextT.rank .. "/" .. nextT.max) or tostring(why))
 end
 
+local function SeenText(state)
+	local parts = {}
+	for key, offset in pairs(type(state.seen) == "table" and state.seen or {}) do
+		parts[#parts + 1] = tostring(key) .. "=" .. tostring(offset)
+	end
+	table.sort(parts)
+	return #parts > 0 and (", pages vues " .. table.concat(parts, " ")) or ""
+end
+
 -- État du rangement par posture, pour /iti rapport.
 local function BarsReport()
 	local layout = LAYOUTS[PlayerClass()]
@@ -2638,9 +2860,9 @@ local function BarsReport()
 		locked = locked + 1
 	end
 	local ok, problem = pcall(PagingProblem)
-	return " (par posture : " .. tostring(state.layout or "pas demandé") .. ", " .. n .. " cases à nous, " .. locked
+	return " (rangement : " .. tostring(state.layout or "pas demandé") .. ", " .. n .. " cases à nous, " .. locked
 		.. " à toi" .. (state.layoutError and (", dernier refus : " .. tostring(state.layoutError)) or "")
-		.. (ok and problem and problem ~= state.layoutError and (", " .. problem) or "") .. ", barre " .. tostring(Num(Call(rawget(_G, "GetBonusBarOffset"))))
+		.. (ok and problem and problem ~= state.layoutError and (", " .. problem) or "") .. SeenText(state) .. ", barre " .. tostring(Num(Call(rawget(_G, "GetBonusBarOffset"))))
 		.. ")"
 end
 
