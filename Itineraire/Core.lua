@@ -28,13 +28,24 @@ if not ns.Pilote then
 	ns.piloteMissing = true
 	ns.Pilote = Shell()
 end
+-- DungeonJournal.lua : nouveau en 2.3.0.
+if not ns.DJ then
+	ns.djMissing = true
+	ns.DJ = Shell()
+end
 
 -- Dépôt public d'Itinéraire (paquet, installateur, nouveautés).
 ns.HOME = "github.com/Calgar50/itineraire-wow-forever"
 -- Version de l'installateur attendue par cette version d'Itinéraire (Installateur.lua est écrit par lui).
-ns.INSTALLER_WANTED = 2
+ns.INSTALLER_WANTED = 3
 -- Nouveautés affichées une fois après une mise à jour (pas de flèches Unicode : police du jeu incertaine).
 ns.NEWS = {
+	["2.3.0"] = {
+		"DungeonJournal (ExehnTV) intégré, avec l'accord de son auteur : s'il est installé, Itinéraire lit ses donjons de Forever, boss, butins et quêtes de donjon pendant le jeu (donc toujours à jour avec lui).",
+		"Équipement : butins de tous ses donjons (nouveaux donjons de Forever compris) et récompenses des quêtes de donjon, avec où prendre la quête. Clic droit : « Voir dans DungeonJournal ».",
+		"Donjon ajouté au trajet : ses quêtes à prendre avant d'y aller sont ajoutées aussi. Quêtes de donjon que Questie ne connaît pas : lieu du rendu et entrée du donjon donnés par DungeonJournal.",
+		"L'installateur (version 3) installe DungeonJournal et le met à jour avec le reste (relance-le une fois à la main). /iti dj ouvre le journal.",
+	},
 	["2.2.0"] = {
 		"Nouveau look : cadres plats aux couleurs de ton thème, barre de titre avec des icônes (pilote, équipement, rendus, quête, recalcul, réglages), étape en cours soulignée, barre d'avancement des objectifs (fenêtre et bandeau).",
 		"Le bandeau s'allume à chaque nouvelle étape, passe au vert quand tu es sur place et affiche « PILOTE » quand le pilote est actif.",
@@ -832,8 +843,8 @@ end
 -------------------------------------------------------------------------------
 -- Versions : ce qui a été mis à jour depuis la dernière fois, nouveautés, installateur
 -------------------------------------------------------------------------------
-local TRACKED = { "Itineraire", "Questie", "QuestieDB", "ShortestPathForever", "ForeverCore" }
-local TRACKED_NAMES = { Itineraire = "Itinéraire", ShortestPathForever = "Shortest Path" }
+local TRACKED = { "Itineraire", "Questie", "QuestieDB", "ShortestPathForever", "ForeverCore", "ForeverDungeonJournal" }
+local TRACKED_NAMES = { Itineraire = "Itinéraire", ShortestPathForever = "Shortest Path", ForeverDungeonJournal = "DungeonJournal" }
 
 local function AddonVersion(name)
 	local fn = C_AddOns and C_AddOns.GetAddOnMetadata or rawget(_G, "GetAddOnMetadata")
@@ -926,11 +937,13 @@ function ns.CheckVersions()
 	db.newsSeen = mine or db.newsSeen
 	local info = ns.InstallerInfo()
 	if info and info.version < ns.INSTALLER_WANTED then
-		ns.Print("un nouvel installateur est sorti : télécharge le paquet sur " .. ns.HOME
+		ns.Print("un nouvel installateur est sorti (il installe aussi DungeonJournal) : télécharge le paquet sur " .. ns.HOME
 			.. " (onglet Releases) et relance-le. En attendant, tes mises à jour continuent.")
 	end
 	if ns.gearMissing then
 		ns.Print("nouveaux fichiers dans cette version : |cffffff00quitte et relance complètement WoW|r pour avoir l'équipement.")
+	elseif ns.djMissing then
+		ns.Print("nouveau fichier dans cette version : |cffffff00quitte et relance complètement WoW|r pour lire DungeonJournal.")
 	end
 end
 
@@ -1283,6 +1296,8 @@ function ns.ReportText()
 		okD and #dungeons or 0, nRecipes, ext.PNJ_NB and tostring(ext.PNJ_NB) or "?",
 		ext.MARCHANDISES_NB and tostring(ext.MARCHANDISES_NB) or "?",
 		type(rawget(_G, "DonDataAPI")) == "table" and "présent" or "absent"))
+	local okDJ, djLine = pcall(ns.DJ.ReportLine)
+	Add(okDJ and djLine or ("DungeonJournal : " .. (ns.djMissing and "module absent (relancer WoW)" or tostring(djLine))))
 	local okPilote, piloteLine = pcall(ns.Pilote.ReportLine)
 	if okPilote and piloteLine then
 		Add(piloteLine)
@@ -1487,8 +1502,22 @@ SlashCmdList.ITINERAIRE = function(msg)
 		end
 	elseif msg == "version" or msg == "maj" then
 		ns.Print("Itinéraire " .. tostring(AddonVersion(ADDON)) .. " · " .. ns.InstallerText() .. " · " .. ns.HOME)
+	elseif msg == "dj" or msg:match("^dj ") or msg == "journal" then
+		if ns.djMissing then
+			ns.Print("DungeonJournal arrive avec un nouveau fichier d'Itinéraire : quitte et relance complètement WoW.")
+		elseif not ns.DJ.NS() then
+			ns.Print(ns.DJ.ReportLine() .. ". Relance l'installateur d'Itinéraire (il l'installe et le tient à jour) ou prends-le sur "
+				.. ns.DJ.URL .. ".")
+		else
+			local wanted = msg:match("^dj%s+(.+)$")
+			local key = wanted and ns.DJ.Find(wanted)
+			if wanted and not key then
+				ns.Print("aucun donjon de DungeonJournal ne s'appelle « " .. wanted .. " » : journal ouvert sur sa page d'accueil.")
+			end
+			ns.DJ.Open(key)
+		end
 	else
-		ns.Print("/iti (fenêtre) · /iti pilote · /iti equipement · /iti reglages · /iti assistant · /iti rapport · /iti bandeau · /iti r (recalculer) · /iti rendus · /iti reset · /iti rythme · /iti groupe · /iti donjons · /iti etat · /iti version · /iti stop · /iti debug")
+		ns.Print("/iti (fenêtre) · /iti pilote · /iti equipement · /iti dj [donjon] · /iti reglages · /iti assistant · /iti rapport · /iti bandeau · /iti r (recalculer) · /iti rendus · /iti reset · /iti rythme · /iti groupe · /iti donjons · /iti etat · /iti version · /iti stop · /iti debug")
 	end
 end
 

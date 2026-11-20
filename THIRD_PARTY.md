@@ -21,6 +21,13 @@ tables change, voir `outils/donnees.py` : commits épinglés, empreintes SHA-256
   de citer la source.
 - Itinéraire lit aussi en jeu, sans rien copier, les addons **Questie** / **QuestieDB** (GPL v3) et
   **Shortest Path Forever** quand ils sont installés.
+- **DungeonJournal** (ExehnTV, https://www.curseforge.com/wow/addons/dungeonjournal), tous droits réservés à son
+  auteur : quand il est installé, `Itineraire/DungeonJournal.lua` lit ses données en jeu (table
+  `ForeverDungeonJournal_NS` : donjons, boss, butins, quêtes de donjon et leurs lieux) et ouvre ses pages.
+  **Aucune donnée ni aucun code de DungeonJournal n'est copié dans ce dépôt ni dans le paquet** ; ils ne sont donc pas
+  couverts par la licence GPL d'Itinéraire. Cette lecture est faite avec l'autorisation de son auteur (accord donné
+  au mainteneur d'Itinéraire, novembre 2026). L'installateur télécharge DungeonJournal depuis CurseForge, sa page
+  officielle, comme le ferait l'application CurseForge.
 
 World of Warcraft et son contenu sont des marques et des créations de Blizzard Entertainment.
 

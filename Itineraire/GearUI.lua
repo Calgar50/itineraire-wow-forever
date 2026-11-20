@@ -30,8 +30,25 @@ local SOURCE_ICONS = {
 	later = "Interface\\GossipFrame\\AvailableQuestIcon", vendor = "Interface\\GossipFrame\\VendorGossipIcon",
 	dungeon = "Interface\\Icons\\INV_Misc_Key_03", drop = "Interface\\Icons\\INV_Misc_Bag_10",
 	object = "Interface\\Icons\\INV_Box_01", craft = "Interface\\Icons\\Trade_BlackSmithing",
-	recipe = "Interface\\Icons\\INV_Scroll_03",
+	recipe = "Interface\\Icons\\INV_Scroll_03", dquest = "Interface\\GossipFrame\\AvailableQuestIcon",
 }
+
+-- DungeonJournal (ExehnTV) chargé ?
+local function DJReady()
+	return ns.DJ and ns.DJ.NS and ns.DJ.NS() and true or false
+end
+
+-- La page de DungeonJournal d'une source (quête ou boss d'un de ses donjons), ou nil.
+local function DJPage(e)
+	for _, s in ipairs(e and e.sources or {}) do
+		if s.dj and s.quest then
+			return s.dj, s.quest, nil
+		elseif s.dj and s.djBoss then
+			return s.dj, nil, s.djBoss
+		end
+	end
+	return nil
+end
 
 local function Gear()
 	return ns.Gear
@@ -82,7 +99,7 @@ local function Reagents(text)
 end
 
 local function ShowItemTooltip(row)
-	local e = row.entry
+	local e = rawget(row, "entry")
 	if not e then
 		return
 	end
@@ -103,12 +120,13 @@ local function ShowItemTooltip(row)
 	if e.req and e.req > (UnitLevel("player") or 1) then
 		GameTooltip:AddLine("Portable au niveau " .. e.req .. ".", 1, 0.6, 0.2, true)
 	end
-	GameTooltip:AddLine("Clic : ajouter au trajet / retirer · Clic droit : plus d'options", 0.6, 0.6, 0.6, true)
+	GameTooltip:AddLine("Clic : ajouter au trajet / retirer · Clic droit : plus d'options"
+		.. (DJReady() and DJPage(e) and " (dont DungeonJournal)" or ""), 0.6, 0.6, 0.6, true)
 	GameTooltip:Show()
 end
 
 local function ShowDungeonTooltip(row)
-	local r = row.dungeonEntry
+	local r = rawget(row, "dungeonEntry")
 	if not r then
 		return
 	end
@@ -133,10 +151,34 @@ local function ShowDungeonTooltip(row)
 			shown = shown + 1
 		end
 	end
+	if d.dj and DJReady() then
+		local quests = Gear().DungeonQuests(d, Gear().LogSet())
+		local function Names(list, max)
+			local names = {}
+			for k = 1, math.min(#list, max) do
+				names[#names + 1] = ns.DJ.QuestName(list[k].q)
+			end
+			return table.concat(names, ", ") .. (#list > max and (" (+" .. (#list - max) .. ")") or "")
+		end
+		if #quests.log + #quests.now + #quests.later > 0 then
+			GameTooltip:AddLine(" ")
+			GameTooltip:AddLine("Quêtes (DungeonJournal) :", 1, 0.82, 0)
+			if #quests.log > 0 then
+				GameTooltip:AddLine("· dans ton journal : " .. Names(quests.log, 4), 0.6, 1, 0.6, true)
+			end
+			if #quests.now > 0 then
+				GameTooltip:AddLine("· à prendre avant d'y aller : " .. Names(quests.now, 4), 1, 1, 1, true)
+			end
+			if #quests.later > 0 then
+				GameTooltip:AddLine("· plus tard : " .. Names(quests.later, 3), 0.6, 0.6, 0.6, true)
+			end
+		end
+	end
 	if not d.entrance then
 		GameTooltip:AddLine("Entrée inconnue : pas de « Y aller » pour ce donjon.", 1, 0.5, 0.3, true)
 	end
-	GameTooltip:AddLine("Clic : ajouter l'entrée au trajet / retirer", 0.6, 0.6, 0.6, true)
+	GameTooltip:AddLine("Clic : ajouter l'entrée (et ses quêtes à prendre) au trajet / retirer"
+		.. (d.dj and DJReady() and " · Clic droit : DungeonJournal" or ""), 0.6, 0.6, 0.6, true)
 	GameTooltip:Show()
 end
 
@@ -187,6 +229,15 @@ local function RowMenu(e)
 			end,
 		}
 	end
+	local key, questID, bossIndex = DJPage(e)
+	if key and DJReady() then
+		items[#items + 1] = {
+			text = "Voir dans DungeonJournal",
+			func = function()
+				ns.DJ.Open(key, questID, bossIndex)
+			end,
+		}
+	end
 	items[#items + 1] = {
 		text = "Ne plus me le proposer",
 		func = function()
@@ -195,6 +246,29 @@ local function RowMenu(e)
 			ns.RequestPlan("équipement", 0)
 		end,
 	}
+	items[#items + 1] = { text = "Fermer" }
+	ns.UI.ShowMenu(items)
+end
+
+local function DungeonMenu(r)
+	local G, d = Gear(), r.dungeon
+	local items = { { text = d.name, title = true } }
+	if d.entrance then
+		items[#items + 1] = {
+			text = G.IsDungeonGoal(d.id) and "Retirer du trajet" or "Ajouter au trajet (Y aller)",
+			func = function()
+				ToggleDungeon(r)
+			end,
+		}
+	end
+	if d.dj and DJReady() then
+		items[#items + 1] = {
+			text = "Ouvrir dans DungeonJournal",
+			func = function()
+				ns.DJ.Open(d.dj)
+			end,
+		}
+	end
 	items[#items + 1] = { text = "Fermer" }
 	ns.UI.ShowMenu(items)
 end
@@ -242,25 +316,29 @@ local function MakeRow(i)
 	row.go = Skin.Button(row, "", 88, 18)
 	row.go:SetPoint("BOTTOMRIGHT", -2, 2)
 	row.go:SetScript("OnClick", function()
-		if row.dungeonEntry then
-			ToggleDungeon(row.dungeonEntry)
-		elseif row.entry then
-			ToggleGoal(row.entry)
+		if rawget(row, "dungeonEntry") then
+			ToggleDungeon(rawget(row, "dungeonEntry"))
+		elseif rawget(row, "entry") then
+			ToggleGoal(rawget(row, "entry"))
 		end
 	end)
 	row:SetScript("OnClick", function(self, button)
-		if self.dungeonEntry then
-			ToggleDungeon(self.dungeonEntry)
-		elseif self.entry then
+		if rawget(self, "dungeonEntry") then
 			if button == "RightButton" then
-				RowMenu(self.entry)
+				DungeonMenu(rawget(self, "dungeonEntry"))
 			else
-				ToggleGoal(self.entry)
+				ToggleDungeon(rawget(self, "dungeonEntry"))
+			end
+		elseif rawget(self, "entry") then
+			if button == "RightButton" then
+				RowMenu(rawget(self, "entry"))
+			else
+				ToggleGoal(rawget(self, "entry"))
 			end
 		end
 	end)
 	row:SetScript("OnEnter", function(self)
-		if self.dungeonEntry then
+		if rawget(self, "dungeonEntry") then
 			ShowDungeonTooltip(self)
 		else
 			ShowItemTooltip(self)
@@ -361,8 +439,9 @@ local function Build()
 	note:SetPoint("BOTTOMLEFT", 14, 12)
 	note:SetPoint("RIGHT", -14, 0)
 	note:SetJustifyH("LEFT")
-	note:SetText("Notes calculées avec les caractéristiques des objets. Sources : Questie, Dropdon et All The Things (donjons), "
-		.. "Guildon Crafts (métiers), Finddon et « Data from ForeverDB.net » (vendeurs). Taux de butin inconnus. Molette : défiler.")
+	note:SetText("Notes d'après les caractéristiques des objets. Sources : Questie, DungeonJournal (ExehnTV), Dropdon et "
+		.. "All The Things (donjons), Guildon Crafts (métiers), Finddon et « Data from ForeverDB.net » (vendeurs). "
+		.. "Taux de butin inconnus. Molette : défiler.")
 
 	frame:EnableMouseWheel(true)
 	frame:SetScript("OnMouseWheel", function(_, delta)
@@ -425,6 +504,7 @@ end
 
 local function FillDungeons()
 	local G = Gear()
+	G.MigrateDungeonGoals()
 	ranking = G.DungeonRanking()
 	offset = math.max(0, math.min(offset, math.max(0, #ranking - ROWS)))
 	for i = 1, ROWS do
@@ -439,7 +519,8 @@ local function FillDungeons()
 			row.name:SetText((r.fits and "|cffffffff" or "|cff999999") .. d.name .. "|r |cff888888(niv " .. d.min .. "-" .. d.max .. ")|r")
 			row.kind:SetTexture(SOURCE_ICONS.dungeon)
 			row.kind:Show()
-			row.sub:SetText(r.count .. " emplacement(s) amélioré(s) · boss : " .. table.concat(r.bosses, ", "))
+			row.sub:SetText(r.count .. " emplacement(s) amélioré(s) · boss : " .. table.concat(r.bosses, ", ")
+				.. (d.dj and DJReady() and " · |cffd8a83cDungeonJournal|r" or ""))
 			row.gain:SetText("|cff00ff00+" .. math.floor(r.pct + 0.5) .. " %|r")
 			local goal = G.IsDungeonGoal(d.id)
 			row.go:SetText(goal and "Sur le trajet" or (d.entrance and "Y aller" or "—"))

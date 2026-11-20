@@ -217,3 +217,33 @@ Notes techniques de chaque version (la plus récente en bas). Pour l'usage, voir
   - Équipement : icône encadrée à la couleur de la qualité, petite icône de la source, onglets et boutons plats.
   - Réglages, assistant, rapport, menus : même habillage ; intitulés soulignés.
   - Bouton de l'objet de quête : raccourci affiché (`GetBindingKey`), bordure.
+- v2.3.0 (20/11/2026) : DungeonJournal (ExehnTV, curseforge.com/wow/addons/dungeonjournal), avec l'accord de son
+  auteur. Nouveau fichier `DungeonJournal.lua` (relancer WoW) ; rien de DungeonJournal n'est copié dans le dépôt.
+  - `ns.DJ` lit `ForeverDungeonJournal_NS` en jeu (lecture seule, tout en pcall) : `DB[donjon]` (level « 13-20 »,
+    entrance, bosses[].loot = { itemID, nom, emplacement, qualité }, quests[] = id, faction, requires, classOnly,
+    profession, unavailable(Races), repeatable, startMap / turninMap / objectiveMap, startsInDungeon, rewardItems,
+    additionalRewardItems), `QUEST_START_MAPS`, `questChainPage` (pages de chaîne : pas des donjons). Noms traduits
+    par ses `Localize*`. Quêtes : `QuestCountsForCharacter`, `PrereqChainOf` + `QuestChainUnlocked`. Ouverture :
+    `ForeverDungeonJournalFrame:Show()` puis `OpenQuestPage` / `OpenBossPage`.
+  - `Data.Dungeons()` : ses donjons (id `dj:<clé>`) remplacent les entrées Dropdon qu'ils couvrent (ailes séparées ;
+    alias Sunken Temple / Temple d'Atal'Hakkar, pic Rochenoire inférieur et supérieur) ; boss et objets de Dropdon
+    qu'il n'a pas rangés dans son donjon (même créature ou nom, sinon l'aile, sinon le premier) ; raids inchangés ;
+    boss d'un seul camp écartés ; `Data.DungeonAlias` reprend les objectifs « Donjon » enregistrés avant.
+  - Équipement : étape « quêtes de donjon » (récompenses des quêtes faisables jusqu'à niveau + 3) ; source `dquest`
+    (quête connue de lui seul, avec le lieu du donneur : « Y aller » = étape « Quête pour … », retirée dès que la quête
+    est dans le journal), `later` (niveau ou quêtes préalables), `journal` ; butin des monstres / rares.
+  - Objectif « Donjon » : quêtes du donjon à prendre avant (Questie : `wanted` ; sinon étape `djq<id>` chez le
+    donneur, sans doublon avec un objectif d'équipement), quêtes du journal à faire dedans dans l'explication.
+  - `Data.QuestHint` / `Data.TurnInGuess` : après le repère du jeu, DungeonJournal (turninMap, donneur = destinataire,
+    rendu « inside » = entrée ; objectifs = objectiveMap ou entrée du donjon), puis DonData.
+  - Fenêtre Équipement : clic droit « Ouvrir / Voir dans DungeonJournal », quêtes du donjon dans la bulle ; lecture des
+    lignes par `rawget` (les champs remis à nil ne doivent pas tomber sur le cadre). `/iti dj [donjon]`, ligne
+    « DungeonJournal » dans le rapport, version suivie dans les annonces de mise à jour.
+  - Installateur v3 : DungeonJournal depuis CurseForge (liste des fichiers du projet 1707971, compte « exehntv »,
+    version publiée ; redirections suivies à la main, hôtes www.curseforge.com / edge.forgecdn.net /
+    mediafilez.forgecdn.net seulement ; taille exacte ; archive : un seul dossier, extensions d'addon, ≤ 600 Mo ;
+    .toc « Title: DungeonJournal », « Author: Exehn », version = nom du fichier). Pas d'empreinte publiée par
+    CurseForge : SHA-256 du fichier reçu noté dans le journal. Installé s'il manque (à la main), mis à jour s'il est là
+    (aussi en `-Auto`) ; `-SansDungeonJournal`. `ns.INSTALLER_WANTED = 3`.
+  - Tests : `dj_test.lua` (faux DungeonJournal à la forme de la 2.1.0 ; 22 tests dans `run_all.sh`) ; vérifié aussi
+    hors dépôt avec les vraies données 2.1.0 (35 donjons, 391 quêtes, 2 880 butins ; chargées sans io/os).

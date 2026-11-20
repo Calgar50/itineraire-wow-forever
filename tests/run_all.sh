@@ -3,7 +3,7 @@
 # Chaque sortie est gardée dans <test>.new ; un test échoue s'il s'arrête sur une erreur Lua.
 PY="$1"; T="$2"; A="$3"
 fail=0
-for t in solver_test classe_test gear_test fusion_test pilote_test scenario ui_test focus_test noop_test options_test promo_test promo_test17 pin_test propositions_test stab_test extras_test group_test robust_test region_test rythme_test v18_test; do
+for t in solver_test classe_test gear_test fusion_test pilote_test scenario ui_test focus_test noop_test options_test promo_test promo_test17 pin_test propositions_test stab_test extras_test group_test robust_test region_test rythme_test v18_test dj_test; do
   if [ "$t" = solver_test ]; then extra="SOLVER_PATH=$A/Solver.lua"; else extra=""; fi
   "$PY" -I "$T/run_lua.py" "$T/$t.lua" TESTS="$T" ADDON_DIR="$A" $extra > "$T/$t.new" 2>&1
   code=$?

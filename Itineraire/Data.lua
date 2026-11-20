@@ -988,9 +988,13 @@ function Data.Dungeons()
 				areaId = areaId }
 		end
 	end
+	list = Data.WithDungeonJournal(list)
 	table.sort(list, function(a, b)
 		if a.min ~= b.min then
 			return a.min < b.min
+		end
+		if type(a.id) ~= type(b.id) then
+			return type(a.id) == "number" -- (ids des données reprises, puis « dj:… »)
 		end
 		return a.id < b.id
 	end)
@@ -998,12 +1002,104 @@ function Data.Dungeons()
 	return list
 end
 
--- Nom d'un boss : celui de Questie (dans la langue du jeu) quand il le connaît, sinon celui des données.
+-- Avec DungeonJournal (s'il est chargé : ns.DJ, lu pendant le jeu) : ses donjons, plus précis et tenus à jour,
+-- remplacent ceux des données reprises qu'ils couvrent (les ailes du Monastère, de Hache-Tripes, de Stratholme ou du
+-- pic Rochenoire deviennent des donjons à part). Rien n'est perdu : les boss et objets des données reprises
+-- qu'il n'a pas sont rangés dans son donjon. Les raids (qu'il ne couvre pas) restent ceux des données reprises.
+local DJ_ALIASES = { sunkentemple = "templeofatalhakkar", lowerblackrockspire = "blackrockspire",
+	upperblackrockspire = "blackrockspire" }
+local dungeonAlias = {} -- [ancien id] = id « dj:… » (objectifs « Donjon » enregistrés avant)
+
+function Data.DungeonAlias(id)
+	return dungeonAlias[id]
+end
+
+function Data.WithDungeonJournal(list)
+	local DJ = ns.DJ
+	local dj = DJ and DJ.Dungeons and DJ.Dungeons() or {}
+	if type(dj) ~= "table" or #dj == 0 then
+		return list
+	end
+	local byNormal = {}
+	for _, d in ipairs(list) do
+		byNormal[Normal(d.english)] = d
+	end
+	local covered = {} -- [ancienne entrée] = { entrées DungeonJournal }
+	local added = {}
+	for _, j in ipairs(dj) do
+		if not j.chain then
+			local n = Normal(j.english)
+			local old = byNormal[n] or byNormal[DJ_ALIASES[n] or ""] or byNormal[Normal((j.english:gsub(":.*$", "")))]
+			local entry = {
+				id = "dj:" .. j.key, dj = j.key, name = j.name, english = j.english, min = j.min, max = j.max,
+				raid = false, bosses = j.bosses, entrance = j.entrance or (old and old.entrance), areaId = old and old.areaId,
+			}
+			if not entry.entrance then
+				entry.entrance, entry.areaId = QuestieEntranceByName(j.english)
+			end
+			if old then
+				covered[old] = covered[old] or {}
+				table.insert(covered[old], entry)
+				dungeonAlias[old.id] = dungeonAlias[old.id] or entry.id
+			end
+			added[#added + 1] = entry
+		end
+	end
+	local out = {}
+	for _, d in ipairs(list) do
+		local entries = covered[d]
+		if not entries then
+			out[#out + 1] = d
+		else
+			for _, boss in ipairs(d.bosses) do
+				-- le même boss (créature ou nom) dans une des entrées, sinon l'aile qui porte son nom, sinon la première
+				local target, home
+				local bossName = Normal((tostring(boss.name or ""):gsub(" <.*>$", "")))
+				for _, e in ipairs(entries) do
+					for _, b in ipairs(e.bosses) do
+						if (boss.id and not boss.enc and b.id == boss.id) or Normal(b.english or b.name) == bossName then
+							target = b
+							break
+						end
+					end
+					if target then
+						break
+					end
+					local wing = type(boss.wing) == "string" and boss.wing:lower() or ""
+					if not home and wing ~= "" and e.english:lower():find(wing, 1, true) then
+						home = e
+					end
+				end
+				if target then
+					local have = {}
+					for _, id in ipairs(target.items) do
+						have[id] = true
+					end
+					for _, id in ipairs(type(boss.items) == "table" and boss.items or {}) do
+						if not have[id] then
+							target.items[#target.items + 1] = id
+						end
+					end
+				else
+					home = home or entries[1]
+					home.bosses[#home.bosses + 1] = boss
+				end
+			end
+		end
+	end
+	for _, e in ipairs(added) do
+		out[#out + 1] = e
+	end
+	return out
+end
+
+-- Nom d'un boss : celui de Questie (dans la langue du jeu) quand il le connaît, sinon celui des données
+-- (DungeonJournal donne déjà le sien dans la langue du jeu).
 function Data.BossName(boss)
 	if type(boss) ~= "table" then
 		return "?"
 	end
-	if not boss.enc and boss.id and M then
+	if not boss.enc and not boss.dj and boss.id and M then
 		local npc = Call(M.DB.GetNPC, M.DB, boss.id)
 		if npc and type(npc.name) == "string" and npc.name ~= "" then
 			return npc.name
@@ -1016,7 +1112,8 @@ end
 -- Repère du jeu pour une quête du journal (quand Questie ne sait pas où aller)
 --   1. le point de quête que le jeu dessine sur la carte (C_QuestLog.GetQuestsOnMap, carte du joueur et ses parents) ;
 --   2. sa prochaine étape (C_QuestLog.GetNextWaypoint) ;
---   3. DonData, s'il est installé (DonDataAPI : points d'objectifs, lieu du rendu).
+--   3. DungeonJournal, s'il est installé (quêtes de donjon : lieu du rendu, entrée du donjon) ;
+--   4. DonData, s'il est installé (DonDataAPI : points d'objectifs, lieu du rendu).
 -- Lecture seule ; tout est protégé (valeurs « secrètes » de Forever en combat).
 -------------------------------------------------------------------------------
 local poi, poiAt = {}, -100
@@ -1065,9 +1162,23 @@ local function Point(map, x, y, source)
 	return { map = map, x = x, y = y, wx = wx, wy = wy, inst = inst, hint = source }
 end
 
--- Où rendre une quête PAS ENCORE finie quand Questie l'ignore : seulement DonData (le repère du jeu montre
--- les objectifs tant que la quête n'est pas finie).
+-- Repère de DungeonJournal (quêtes de donjon de Forever : où les rendre, entrée du donjon pour les objectifs).
+local function DungeonJournalHint(questID, turnin)
+	local DJ = ns.DJ
+	local ok, point = false, nil
+	if DJ and type(DJ.Hint) == "function" then
+		ok, point = pcall(DJ.Hint, questID, turnin)
+	end
+	return ok and type(point) == "table" and point or nil
+end
+
+-- Où rendre une quête PAS ENCORE finie quand Questie l'ignore : DungeonJournal puis DonData (le repère du jeu
+-- montre les objectifs tant que la quête n'est pas finie).
 function Data.TurnInGuess(questID)
+	local dj = DungeonJournalHint(questID, true)
+	if dj then
+		return dj
+	end
 	local api = rawget(_G, "DonDataAPI")
 	if type(api) ~= "table" or type(api.TurnInPoint) ~= "function" then
 		return nil
@@ -1097,6 +1208,10 @@ function Data.QuestHint(questID, turnin)
 				return point
 			end
 		end
+	end
+	local dj = DungeonJournalHint(questID, turnin)
+	if dj then
+		return dj
 	end
 	local api = rawget(_G, "DonDataAPI")
 	if type(api) == "table" then

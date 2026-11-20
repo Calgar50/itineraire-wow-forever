@@ -807,7 +807,9 @@ end
 -------------------------------------------------------------------------------
 -- Sources d'un objet
 -------------------------------------------------------------------------------
-local SOURCE_RANK = { journal = 1, craft = 2, vendor = 3, quest = 4, recipe = 5, drop = 6, dungeon = 7, object = 8, later = 9 }
+-- (dquest : quête de donjon connue de DungeonJournal seulement, avec le lieu où la prendre)
+local SOURCE_RANK = { journal = 1, craft = 2, vendor = 3, quest = 4, dquest = 4, recipe = 5, drop = 6, dungeon = 7, object = 8,
+	later = 9 }
 Gear.SOURCE_RANK = SOURCE_RANK
 
 local function ZoneOf(points)
@@ -946,12 +948,64 @@ local function DropSources(fields, out)
 	end
 end
 
--- Butin d'un boss de donjon (données Dropdon / All The Things).
+-- Butin d'un boss de donjon (DungeonJournal, ou données Dropdon / All The Things).
 local function BossSource(d, boss)
 	local name = Data.BossName(boss)
-	return { kind = "dungeon", dungeon = d.id, dungeonName = d.name, name = name, raid = d.raid,
-		points = d.entrance and { d.entrance } or {},
-		text = "butin de " .. name .. " (" .. (d.raid and "raid " or "donjon ") .. d.name .. ", niv " .. d.min .. "-" .. d.max .. ")" }
+	local where = (d.raid and "raid " or "donjon ") .. d.name .. ", niv " .. d.min .. "-" .. d.max
+	local text = boss.trash and ("butin des monstres (" .. where .. ")")
+		or ("butin de " .. name .. (boss.rare and " (rare, " or " (") .. where .. ")")
+	return { kind = "dungeon", dungeon = d.id, dungeonName = d.name, name = boss.trash and "monstres" or name, raid = d.raid,
+		points = d.entrance and { d.entrance } or {}, dj = boss.dj and d.dj or nil, djBoss = boss.dj and boss.djIndex or nil,
+		text = text }
+end
+
+-- Récompenses des quêtes de donjon de DungeonJournal (c.djQuests) que Questie ne range pas déjà dans les
+-- récompenses de l'objet : dans ton journal, à prendre maintenant (avec le lieu), ou plus tard.
+local function DJQuestSources(c, inLog, out)
+	local DJ = ns.DJ
+	if not (c.djQuests and DJ and DJ.NS and DJ.NS()) then
+		return
+	end
+	local known = {}
+	for _, qid in ipairs(type(c.fields.questRewards) == "table" and c.fields.questRewards or {}) do
+		known[qid] = true
+	end
+	for _, e in ipairs(c.djQuests) do
+		local q, key = e.q, e.key
+		if not known[q.id] then
+			known[q.id] = true
+			local name = DJ.QuestName(q)
+			local where = DJ.DungeonName(key)
+			local state, req = DJ.QuestState(q, inLog)
+			if state == "log" then
+				out[#out + 1] = { kind = "journal", quest = q.id, name = name, dj = key,
+					text = "récompense de « " .. name .. " » (dans ton journal ; " .. where .. ")" }
+			elseif state == "maintenant" then
+				local questie = Data.Quest(q.id)
+				local available = questie and Data.CanTake(q.id, questie, inLog) and Data.AvailableQuests()[q.id]
+				local starts = available and Data.StarterPoints(questie) or {}
+				if #starts > 0 then
+					out[#out + 1] = { kind = "quest", quest = q.id, name = name, points = starts, dj = key,
+						text = "récompense de « " .. name .. " » (à prendre" .. (starts[1].name and (" chez " .. starts[1].name) or "")
+							.. (ZoneOf(starts) and (", " .. ZoneOf(starts)) or "") .. " ; " .. where .. ")" }
+				else
+					local p = DJ.StartPoint(q, key)
+					local zone = p and ZoneOf({ p })
+					local at = p and ((p.name and (" chez " .. p.name) or "") .. (zone and ((p.name and ", " or " : ") .. zone) or ""))
+					if at == "" then
+						at = nil
+					end
+					out[#out + 1] = { kind = p and "dquest" or "later", quest = q.id, name = name, points = p and { p } or {}, dj = key,
+						text = "récompense de « " .. name .. " » (" .. where .. " ; à prendre"
+							.. (at or (" : " .. tostring(DJ.Text(q.pickup) or "lieu inconnu"))) .. ")" }
+				end
+			elseif state == "plus tard" or state == "chaîne" then
+				out[#out + 1] = { kind = "later", quest = q.id, name = name, dj = key,
+					text = "récompense de « " .. name .. " » (" .. where .. " ; plus tard : "
+						.. (state == "chaîne" and "quêtes préalables à finir" or ("niveau " .. tostring(req))) .. ")" }
+			end
+		end
+	end
 end
 
 -- Fabrication (recettes de Guildon Crafts) : rend la source ou nil.
@@ -1126,6 +1180,34 @@ local function Scan(yield)
 		end
 	end
 
+	-- 2 bis. Récompenses des quêtes de donjon de DungeonJournal (s'il est chargé), quêtes faisables à ton niveau.
+	local DJ = ns.DJ
+	if DJ and DJ.NS and DJ.NS() then
+		state.phase = "quêtes de donjon"
+		local inLog = Gear.LogSet()
+		for _, j in ipairs(DJ.Dungeons() or {}) do
+			for _, q in ipairs(j.quests) do
+				yield()
+				local st = DJ.QuestState(q, inLog)
+				if st ~= "non" and st ~= "fait" and (tonumber(q.requires) or 1) <= level + LOOKAHEAD then
+					for _, list in ipairs({ q.rewardItems, q.additionalRewardItems }) do
+						for _, it in ipairs(type(list) == "table" and list or {}) do
+							local id = type(it) == "table" and tonumber(it[1])
+							local inst = id and Gear.Instant(id)
+							if inst and SLOTS_OF[inst.equipLoc] and Gear.CanWear(inst.classID, inst.subclassID, level + LOOKAHEAD) then
+								local c = Add(id)
+								if c then
+									c.djQuests = c.djQuests or {}
+									c.djQuests[#c.djQuests + 1] = { q = q, key = j.key }
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
 	-- 3. Ce que tes métiers fabriquent (Guildon Crafts), jusqu'à SKILL_AHEAD points au-dessus de ta compétence.
 	state.phase = "métiers"
 	if next(cfg.skills) then
@@ -1206,6 +1288,7 @@ local function Scan(yield)
 			end
 			local sources = {}
 			QuestSources(c.fields, inLog, sources)
+			DJQuestSources(c, inLog, sources)
 			VendorSources(c.id, c.fields.vendors, sources)
 			local bossKnown = false
 			for _, s in ipairs(c.extra) do
@@ -1447,7 +1530,37 @@ function Gear.CleanGoals()
 	return removed
 end
 
-local WORK = { vendor = 60, drop = 600, object = 120, dungeon = 1800, recipe = 90 }
+local WORK = { vendor = 60, drop = 600, object = 120, dungeon = 1800, recipe = 90, dquest = 30 }
+
+-- Objectifs « Donjon » enregistrés avant que DungeonJournal ne remplace ce donjon : repris sous son nouvel id.
+function Gear.MigrateDungeonGoals()
+	local goals = Gear.Config().dungeonGoals
+	local moves = {}
+	for id in pairs(goals) do
+		local alias = Data.DungeonAlias and Data.DungeonAlias(id)
+		if alias and alias ~= id then
+			moves[id] = alias
+		end
+	end
+	for id, alias in pairs(moves) do -- (pas d'ajout de clé pendant le parcours de la table)
+		goals[id] = nil
+		goals[alias] = true
+	end
+end
+
+-- Préparer un donjon de DungeonJournal : ses quêtes dans ton journal (à faire dedans) et celles à prendre avant.
+function Gear.DungeonQuests(d, inLog)
+	local DJ = ns.DJ
+	local out = { log = {}, now = {}, later = {} }
+	if not (d and d.dj and DJ and DJ.NS and DJ.NS()) then
+		return out
+	end
+	for _, e in ipairs(DJ.QuestsFor(d.dj, inLog) or {}) do
+		local list = e.state == "log" and out.log or e.state == "maintenant" and out.now or out.later
+		list[#list + 1] = e
+	end
+	return out
+end
 
 local function GoalWhy(e, s)
 	local why = {
@@ -1473,39 +1586,89 @@ function Gear.PlanOptions()
 		out.quests[qid] = { link = e.link, name = e.name, gain = Gear.GainText(e), slot = e.slotName }
 	end
 	local cfg = Gear.Config()
+	local inLog = Gear.LogSet()
+	local goalQuests = {} -- quêtes de DungeonJournal déjà visées par un objectif d'équipement
 	for id in pairs(cfg.goals) do
 		local e = Gear.Find(id)
 		local s = e and Gear.Target(e)
 		if s and s.kind == "quest" then
 			out.wanted[s.quest] = true
+		elseif s and s.kind == "dquest" and (inLog[s.quest] or Data.Completed(s.quest)) then
+			-- quête déjà prise (ou faite) depuis la dernière analyse : plus rien à aller chercher
 		elseif s then
+			if s.kind == "dquest" then
+				goalQuests[s.quest] = true
+			end
 			local verb = s.kind == "vendor" and "Acheter" or s.kind == "dungeon" and "Donjon pour"
-				or s.kind == "recipe" and "Recette pour" or "Butin :"
+				or s.kind == "recipe" and "Recette pour" or s.kind == "dquest" and "Quête pour" or "Butin :"
 			out.goals[#out.goals + 1] = {
 				kind = "gear", key = "objet" .. id, item = id, points = s.points, work = WORK[s.kind] or 300,
 				label = verb .. " " .. e.name,
 				title = verb .. " " .. e.name .. (s.kind == "vendor" and (" chez " .. tostring(s.name))
 					or s.kind == "dungeon" and (" (" .. tostring(s.dungeonName) .. ")")
+					or s.kind == "dquest" and (" : « " .. tostring(s.name) .. " »")
 					or s.kind == "recipe" and "" or (" (" .. tostring(s.name) .. ")")),
 				why = GoalWhy(e, s),
 			}
 		end
 	end
+	Gear.MigrateDungeonGoals()
 	local ranking
 	for id in pairs(cfg.dungeonGoals) do
 		ranking = ranking or Gear.DungeonRanking()
 		for _, r in ipairs(ranking) do
 			local d = r.dungeon
 			if d.id == id and d.entrance then
+				local why = {
+					d.name .. " (niv " .. d.min .. "-" .. d.max .. ") : " .. r.count .. " amélioration(s) pour toi.",
+					"Boss : " .. table.concat(r.bosses, ", ") .. ".",
+				}
+				-- DungeonJournal : les quêtes de ce donjon, à prendre AVANT d'y aller (étapes ajoutées au trajet)
+				local DJ = ns.DJ
+				local quests = Gear.DungeonQuests(d, inLog)
+				local names = {}
+				for _, e in ipairs(quests.log) do
+					names[#names + 1] = DJ.QuestName(e.q)
+				end
+				if #names > 0 then
+					why[#why + 1] = "À faire dedans (ton journal) : " .. table.concat(names, ", ") .. "."
+				end
+				local toTake = {}
+				for _, e in ipairs(quests.now) do
+					local q = e.q
+					local questie = Data.Quest(q.id)
+					local starts = questie and Data.CanTake(q.id, questie, inLog) and Data.AvailableQuests()[q.id]
+						and Data.StarterPoints(questie) or {}
+					local p = #starts == 0 and not q.startsInDungeon and DJ.StartPoint(q, d.dj) or nil
+					if #starts > 0 then
+						out.wanted[q.id] = true
+						toTake[#toTake + 1] = DJ.QuestName(q)
+					elseif p and goalQuests[q.id] then
+						toTake[#toTake + 1] = DJ.QuestName(q) -- (déjà une étape, pour une récompense visée)
+					elseif p then -- (« Passer l'étape » : le calcul du trajet l'écarte, clé S:djq…)
+						local qname = DJ.QuestName(q)
+						toTake[#toTake + 1] = qname
+						out.goals[#out.goals + 1] = {
+							kind = "gear", key = "djq" .. q.id, points = { p }, work = 30,
+							label = "Quête de donjon : " .. qname,
+							title = "Prendre « " .. qname .. " »" .. (p.name and (" chez " .. p.name) or "") .. " (" .. d.name .. ")",
+							why = {
+								"Quête de " .. d.name .. " (DungeonJournal) : à prendre avant d'y aller.",
+								"Où : " .. tostring(DJ.Text(q.pickup) or "?") .. ".",
+								"Plus envie ? Clic droit > Passer l'étape.",
+							},
+						}
+					end
+				end
+				if #toTake > 0 then
+					why[#why + 1] = "Quêtes à prendre avant (ajoutées au trajet) : " .. table.concat(toTake, ", ") .. "."
+				end
+				why[#why + 1] = "Plus envie ? Clic droit > Passer l'étape, ou retire-le dans /iti equipement (onglet Donjons)."
 				out.goals[#out.goals + 1] = {
 					kind = "gear", key = "donjon" .. id, points = { d.entrance }, work = 1800,
 					label = (d.raid and "Raid : " or "Donjon : ") .. d.name,
 					title = (d.raid and "Raid : " or "Donjon : ") .. d.name .. " (" .. r.count .. " amélioration(s))",
-					why = {
-						d.name .. " (niv " .. d.min .. "-" .. d.max .. ") : " .. r.count .. " amélioration(s) pour toi.",
-						"Boss : " .. table.concat(r.bosses, ", ") .. ".",
-						"Plus envie ? Clic droit > Passer l'étape, ou retire-le dans /iti equipement (onglet Donjons).",
-					},
+					why = why,
 				}
 			end
 		end

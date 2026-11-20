@@ -6,6 +6,10 @@
                                ou le dossier "Itineraire" fourni a cote de ce script s'il est plus recent)
       - Questie + QuestieDB   (derniere version publiee sur github.com/Questie/Questie)
       - Shortest Path Forever + ForeverCore (derniere version sur github.com/cjber/shortest-path-forever)
+      - DungeonJournal        (ExehnTV, derniere version publiee sur curseforge.com/wow/addons/dungeonjournal) :
+                               Itineraire lit ses donjons, butins et quetes de donjon pendant le jeu. Installe
+                               s'il manque (sauf -SansDungeonJournal) ; la mise a jour automatique le tient a
+                               jour s'il est installe (le supprimer suffit pour qu'elle le laisse tranquille).
 
     Mise a jour automatique (proposee a la fin, ou -ActiverMajAuto) : une tache planifiee de Windows,
     a ton nom et sans droits d'administrateur, relance ce script en mode -Auto a l'ouverture de session
@@ -14,8 +18,11 @@
     %LOCALAPPDATA%\Itineraire (journal : maj.log). -DesactiverMajAuto la retire.
 
     Securite :
-      - telechargements en HTTPS depuis GitHub uniquement (adresse verifiee) ;
+      - telechargements en HTTPS depuis GitHub, et depuis CurseForge pour DungeonJournal (adresses et
+        redirections verifiees : www.curseforge.com, edge.forgecdn.net, mediafilez.forgecdn.net) ;
       - empreinte SHA-256 du fichier comparee a celle publiee par GitHub (refus si elle manque ou differe) ;
+        CurseForge n'en publie pas : pour DungeonJournal, fichier publie par le compte de son auteur, taille
+        exacte, contenu (un seul dossier, fichiers d'addon seulement) et fichier .toc controles ;
       - archive controlee entree par entree : rien ne peut s'ecrire hors du dossier prevu ;
       - seuls les dossiers attendus sont installes (QuestieTrace, livre avec Questie, est laisse de cote :
         il se dispute la fleche avec Itineraire) ;
@@ -31,6 +38,7 @@
       -WowPath <dossier>    dossier _forever_ (ou World of Warcraft) si la detection automatique echoue
       -Verifier             affiche seulement les versions installees et disponibles, sans rien changer
       -SansTelechargement   installe seulement l'Itineraire fourni a cote (rien depuis Internet)
+      -SansDungeonJournal   n'installe pas DungeonJournal (et ne le met pas a jour)
       -Oui                  ne pose aucune question (WoW ouvert : on continue quand meme)
       -ActiverMajAuto       active la mise a jour automatique (tache planifiee)
       -DesactiverMajAuto    la desactive (retire la tache et la copie du script)
@@ -42,6 +50,7 @@ param(
     [string]$WowPath,
     [switch]$Verifier,
     [switch]$SansTelechargement,
+    [switch]$SansDungeonJournal,
     [switch]$Oui,
     [switch]$ActiverMajAuto,
     [switch]$DesactiverMajAuto,
@@ -53,7 +62,7 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'   # sinon les telechargements sont tres lents sous PowerShell 5.1
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 
-$InstallerVersion = 2
+$InstallerVersion = 3
 $UserAgent = 'Itineraire-Installateur'
 $ItiRepo = 'Calgar50/itineraire-wow-forever'
 $Sources = @(
@@ -62,6 +71,11 @@ $Sources = @(
 )
 $ItiSource = @{ Repo = $ItiRepo; Pattern = '^Itineraire-v[0-9]+(\.[0-9]+)*\.zip$'; Addons = @('Itineraire'); Ignore = @() }
 $OtherGuides = @('RXPGuides', 'AdventureGuideForever', 'Guidelime', 'ZygorGuidesViewer', 'ZygorGuidesViewerClassic', 'Polestar', 'QuestieTrace', 'Leveldon')
+# DungeonJournal (ExehnTV) : projet CurseForge, compte de l'auteur, nom des fichiers publies.
+$DjSource = @{ ProjectId = 1707971; Folder = 'ForeverDungeonJournal'; Author = 'exehntv'; Pattern = '^DungeonJournal(?<v>[0-9]+(\.[0-9]+){1,3})\.zip$' }
+$CurseHosts = @('www.curseforge.com', 'edge.forgecdn.net', 'mediafilez.forgecdn.net')
+$DjExtensions = @('', '.lua', '.toc', '.xml', '.tga', '.blp', '.txt', '.md', '.png', '.jpg', '.ttf', '.otf', '.ogg', '.mp3')
+$DjMaxBytes = 600MB
 
 $TaskName = 'Itineraire - mise a jour automatique'
 $AutoDir = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Itineraire'
@@ -199,6 +213,101 @@ function Save-Asset($Asset, [string]$Folder) {
     return $file
 }
 
+# --- CurseForge (DungeonJournal) -----------------------------------------------------------
+function Get-Prop($Obj, [string]$Name) {
+    if ($null -eq $Obj) { return $null }
+    $p = $Obj.PSObject.Properties[$Name]
+    if ($p) { return $p.Value }
+    return $null
+}
+
+# Derniere version publiee (pas alpha/beta) par le compte de l'auteur, d'apres la liste des fichiers du projet.
+function Get-LatestDungeonJournal {
+    $api = "https://www.curseforge.com/api/v1/mods/$($DjSource.ProjectId)/files?pageIndex=0&pageSize=20&sort=dateCreated&sortDescending=true&removeAlphas=true"
+    $list = Invoke-RestMethod -Uri $api -Headers @{ 'User-Agent' = $UserAgent; 'Accept' = 'application/json' } -TimeoutSec 60
+    $best = $null
+    foreach ($f in @(Get-Prop $list 'data')) {
+        if ([string](Get-Prop $f 'projectId') -ne [string]$DjSource.ProjectId) { continue }
+        if ([string](Get-Prop $f 'releaseType') -ne '1') { continue }
+        if ([string](Get-Prop (Get-Prop $f 'user') 'username') -ne $DjSource.Author) { continue }
+        $name = [string](Get-Prop $f 'fileName')
+        $m = [regex]::Match($name, $DjSource.Pattern)
+        if (-not $m.Success) { continue }
+        $id = [long](Get-Prop $f 'id')
+        $size = [long](Get-Prop $f 'fileLength')
+        if ($id -le 0 -or $size -le 0 -or $size -gt 300MB) { continue }
+        $v = $m.Groups['v'].Value
+        if (-not $best -or (Compare-AddonVersion $best.Version $v) -gt 0) {
+            $best = [pscustomobject]@{ Id = $id; Name = $name; Version = $v; Size = $size }
+        }
+    }
+    if (-not $best) { throw 'aucune version publiee trouvee sur CurseForge.' }
+    return $best
+}
+
+# Suit les redirections a la main : chaque adresse doit etre en HTTPS sur un hote de CurseForge.
+function Resolve-CurseUrl([string]$Url) {
+    for ($i = 0; $i -lt 6; $i++) {
+        $uri = New-Object System.Uri $Url
+        if ($uri.Scheme -ne 'https' -or $CurseHosts -notcontains $uri.Host) { throw "adresse de telechargement inattendue ($($uri.Host))." }
+        $req = [Net.HttpWebRequest]::Create($uri)
+        $req.AllowAutoRedirect = $false
+        $req.Method = 'HEAD'
+        $req.UserAgent = $UserAgent
+        $req.Timeout = 60000
+        $resp = $null
+        try { $resp = $req.GetResponse() } catch [Net.WebException] { $resp = $_.Exception.Response; if (-not $resp) { throw } }
+        try {
+            $code = [int]$resp.StatusCode
+            $location = $resp.Headers['Location']
+        } finally {
+            $resp.Close()
+        }
+        if ($code -eq 200) { return $uri.AbsoluteUri }
+        if ($code -ge 300 -and $code -lt 400 -and $location) {
+            $Url = (New-Object System.Uri ($uri, $location)).AbsoluteUri
+            continue
+        }
+        throw "reponse HTTP $code de $($uri.Host)."
+    }
+    throw 'trop de redirections.'
+}
+
+function Save-CurseFile($File, [string]$Folder) {
+    $url = Resolve-CurseUrl ("https://www.curseforge.com/api/v1/mods/{0}/files/{1}/download" -f $DjSource.ProjectId, $File.Id)
+    $path = Join-Path $Folder $File.Name
+    Say "   telechargement de $($File.Name) ($([math]::Round($File.Size / 1MB, 1)) Mo)..."
+    Invoke-WebRequest -Uri $url -OutFile $path -UseBasicParsing -Headers @{ 'User-Agent' = $UserAgent } -TimeoutSec 900 -MaximumRedirection 0
+    $size = (Get-Item -LiteralPath $path).Length
+    if ($size -ne $File.Size) { throw "Taille inattendue pour $($File.Name) : $size octets au lieu de $($File.Size)." }
+    $hash = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+    Say "   taille verifiee (CurseForge ne publie pas d'empreinte ; SHA-256 du fichier recu : $hash)." Green
+    return $path
+}
+
+# Controle d'une archive avant extraction : un seul dossier attendu, fichiers d'addon seulement, taille bornee.
+function Test-ZipContent([string]$Zip, [string[]]$Folders, [string[]]$Extensions, [long]$MaxBytes) {
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive = [IO.Compression.ZipFile]::OpenRead($Zip)
+    try {
+        $total = [long]0
+        foreach ($entry in $archive.Entries) {
+            $name = $entry.FullName -replace '\\', '/'
+            $top = $name.Split('/')[0]
+            if ($Folders -notcontains $top) { throw "contenu inattendu dans l'archive : $name" }
+            if (-not $name.EndsWith('/')) {
+                $ext = [IO.Path]::GetExtension($name).ToLowerInvariant()
+                if ($Extensions -notcontains $ext) { throw "type de fichier inattendu dans l'archive : $name" }
+            }
+            $total += $entry.Length
+            if ($total -gt $MaxBytes) { throw 'archive trop grosse une fois decompressee.' }
+        }
+    } finally {
+        $archive.Dispose()
+    }
+}
+
 # Extrait seulement les dossiers attendus, sans jamais ecrire hors de $Stage.
 function Expand-Checked([string]$Zip, [string]$Stage, [string[]]$Wanted) {
     Add-Type -AssemblyName System.IO.Compression
@@ -287,7 +396,7 @@ function Enable-AutoUpdate([string]$Forever) {
         -ExecutionTimeLimit (New-TimeSpan -Minutes 30) -MultipleInstances IgnoreNew
     $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited
     Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger @($atLogon, $daily) -Settings $settings -Principal $principal `
-        -Description 'Met a jour Itineraire, Questie et Shortest Path Forever pour WoW Forever (Installer-Itineraire.ps1 -Auto). Desactiver : relancer l''installateur avec -DesactiverMajAuto.' -Force | Out-Null
+        -Description 'Met a jour Itineraire, Questie, Shortest Path Forever et DungeonJournal pour WoW Forever (Installer-Itineraire.ps1 -Auto). Desactiver : relancer l''installateur avec -DesactiverMajAuto.' -Force | Out-Null
     Say "   mise a jour automatique ACTIVE (tache planifiee '$TaskName', copie du script : $AutoScript)." Green
 }
 
@@ -369,6 +478,17 @@ try {
             }
         }
     }
+    # DungeonJournal : installe s'il manque (a la main), mis a jour s'il est la (mode -Auto : seulement s'il est la).
+    $djInstalled = Get-AddonVersion (Join-Path $addOns $DjSource.Folder) $DjSource.Folder
+    $djLatest = $null
+    if (-not $SansTelechargement -and -not $SansDungeonJournal -and (-not $Auto -or $djInstalled)) {
+        try {
+            $djLatest = Get-LatestDungeonJournal
+            Say ("   curseforge.com/wow/addons/dungeonjournal : {0}" -f $djLatest.Name)
+        } catch {
+            Say ("   curseforge.com/wow/addons/dungeonjournal : indisponible ({0})" -f $_.Exception.Message) Yellow
+        }
+    }
     # Itineraire : la plus recente entre GitHub et le dossier fourni a cote du script.
     $itiGitVersion = if ($itiAsset) { ($itiAsset.Name -replace '^Itineraire-v', '') -replace '\.zip$', '' } else { $null }
     $itiFrom = $null
@@ -393,6 +513,9 @@ try {
             Say ("   {0,-22} installe : {1,-14} propose : {2} ({3})" -f $item.Name, $label, $item.Offered, $item.From)
         }
     }
+    $djLabel = if ($djInstalled) { $djInstalled } else { 'absent' }
+    $djOffer = if ($djLatest) { $djLatest.Version } elseif ($SansDungeonJournal) { 'non demande' } else { '?' }
+    Say ("   {0,-22} installe : {1,-14} propose : {2} (CurseForge, ExehnTV)" -f 'DungeonJournal', $djLabel, $djOffer)
     foreach ($g in $OtherGuides) {
         if (Test-Path -LiteralPath (Join-Path $addOns $g)) {
             Say "   (autre guide present : $g - Itineraire le desactive au lancement)" DarkYellow
@@ -474,6 +597,41 @@ try {
         }
     }
 
+    # DungeonJournal (ExehnTV, CurseForge) : lu par Itineraire pendant le jeu
+    if ($djLatest) {
+        Title 'DungeonJournal (CurseForge, ExehnTV)'
+        $cmp = Compare-AddonVersion $djInstalled $djLatest.Version
+        if ($cmp -gt 0) {
+            try {
+                $zip = Save-CurseFile $djLatest $tempDir
+                Test-ZipContent $zip @($DjSource.Folder) $DjExtensions $DjMaxBytes
+                $djStage = Join-Path $stage '_dj'
+                [void](New-Item -ItemType Directory -Path $djStage)
+                [void](Expand-Checked $zip $djStage @($DjSource.Folder))
+                $from = Join-Path $djStage $DjSource.Folder
+                $toc = Join-Path $from ($DjSource.Folder + '.toc')
+                if (-not (Test-Path -LiteralPath $toc -PathType Leaf)) { throw "Archive incomplete : pas de $($DjSource.Folder).toc." }
+                $head = (Get-Content -LiteralPath $toc -TotalCount 30 -Encoding UTF8) -join "`n"
+                if ($head -notmatch '(?m)^##\s*Title:\s*DungeonJournal\s*$' -or $head -notmatch '(?m)^##\s*Author:\s*Exehn\b') {
+                    throw "le fichier .toc n'est pas celui de DungeonJournal (ExehnTV)."
+                }
+                $real = Get-AddonVersion $from $DjSource.Folder
+                if ($real -ne $djLatest.Version) { throw "l'archive contient la version $real au lieu de $($djLatest.Version)." }
+                Install-Addon $DjSource.Folder $from $addOns $backupRoot
+                $was = if ($djInstalled) { $djInstalled } else { 'absent' }
+                Say ("   DungeonJournal : {0} -> {1}" -f $was, $real) Green
+                $changed.Add('DungeonJournal')
+            } catch {
+                Say ("   ERREUR pour DungeonJournal : {0} (la version en place est gardee)" -f $_.Exception.Message) Red
+                $failed.Add('DungeonJournal')
+            }
+        } elseif ($cmp -eq 0) {
+            Say "   DungeonJournal $($djLatest.Version) : deja a jour."
+        } else {
+            Say "   DungeonJournal : la version installee ($djInstalled) est plus recente que $($djLatest.Version), gardee." DarkYellow
+        }
+    }
+
     # Itineraire
     $iti = @($plan | Where-Object { $_.Name -eq 'Itineraire' }) | Select-Object -First 1
     if ($iti) {
@@ -525,7 +683,7 @@ try {
             }
         } elseif (-not $Oui) {
             Say ''
-            Say 'Mise a jour automatique : Itineraire, Questie et Shortest Path restent a jour tout seuls' White
+            Say 'Mise a jour automatique : Itineraire, Questie, Shortest Path et DungeonJournal restent a jour tout seuls' White
             Say '(verification a l''ouverture de session puis toutes les 4 h, seulement quand l''ordinateur est' White
             Say 'inutilise et WoW ferme ; desactivable en relancant avec -DesactiverMajAuto).' White
             $answer = Read-Host 'Activer la mise a jour automatique ? (O/n)'

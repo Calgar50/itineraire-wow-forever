@@ -25,6 +25,16 @@ Il ne suit pas un guide figé : le trajet se recalcule à chaque quête prise, r
     **objet que tes métiers fabriquent** (recette connue ou à apprendre) ;
   - l'onglet **Donjons** répond à « quel donjon faire pour mon équipement ? » ;
   - **« Y aller »** ajoute la source (ou l'entrée du donjon) au trajet : la flèche t'y emmène.
+- **DungeonJournal** ([ExehnTV](https://www.curseforge.com/wow/addons/dungeonjournal), intégré avec l'accord de son
+  auteur) : quand il est installé, Itinéraire lit **pendant le jeu** ses donjons (nouveaux donjons de Forever compris),
+  boss, butins et quêtes de donjon. Il suit donc ses mises à jour quotidiennes sans attendre une version
+  d'Itinéraire. Ce que ça ajoute :
+  - équipement : butins de ses donjons et **récompenses des quêtes de donjon**, avec où prendre la quête ;
+  - donjon ajouté au trajet : **ses quêtes à prendre avant d'y aller** sont ajoutées aussi ;
+  - quêtes de donjon que Questie ne connaît pas : lieu du rendu, entrée du donjon pour les objectifs ;
+  - clic droit dans la fenêtre Équipement, ou `/iti dj [donjon]` : ouvre la page dans DungeonJournal.
+
+  Rien de DungeonJournal n'est copié dans Itinéraire.
 
   Les objets sont notés avec leurs vraies caractéristiques (celles du jeu) : poids par classe tirés des guides,
   14 puissance d'attaque = 1 DPS d'arme, armure comptée en vie effective, et le rôle (tank, mêlée, distance, sorts,
@@ -46,8 +56,9 @@ Il ne suit pas un guide figé : le trajet se recalcule à chaque quête prise, r
    → `Itineraire-vX.Y.Z-paquet.zip`.
 2. Quitte WoW, extrais le zip, double-clique sur **`Installer-Itineraire.cmd`**.
 
-L'installateur trouve le dossier de WoW Forever, installe ou met à jour **Itinéraire, Questie (+ QuestieDB) et
-Shortest Path Forever (+ ForeverCore)** et propose d'activer la **mise à jour automatique**.
+L'installateur trouve le dossier de WoW Forever, installe ou met à jour **Itinéraire, Questie (+ QuestieDB),
+Shortest Path Forever (+ ForeverCore) et DungeonJournal** (depuis sa page CurseForge ; `-SansDungeonJournal` pour
+s'en passer) et propose d'activer la **mise à jour automatique**.
 
 Installation à la main : copie le dossier `Itineraire` du fichier `Itineraire-vX.Y.Z.zip` dans
 `World of Warcraft\_forever_\Interface\AddOns`, et installe Questie et Shortest Path Forever (CurseForge par
@@ -58,6 +69,8 @@ exemple).
 Une tâche planifiée de Windows, à ton nom et sans droits d'administrateur, relance l'installateur
 (`-Auto`) à l'ouverture de session puis toutes les 4 heures, **seulement quand l'ordinateur est inutilisé
 depuis 10 minutes et que WoW est fermé**. Les nouvelles versions comptent au lancement suivant du jeu.
+DungeonJournal, qui sort presque tous les jours, est mis à jour par la même tâche (s'il est installé : le supprimer
+suffit pour qu'elle le laisse tranquille).
 
 - Journal : `%LOCALAPPDATA%\Itineraire\maj.log`.
 - Activer / désactiver : relance l'installateur avec `-ActiverMajAuto` ou `-DesactiverMajAuto`.
@@ -65,8 +78,12 @@ depuis 10 minutes et que WoW est fermé**. Les nouvelles versions comptent au la
 
 ### Sécurité de l'installateur
 
-- Téléchargements en HTTPS depuis GitHub uniquement (adresse vérifiée).
+- Téléchargements en HTTPS depuis GitHub, et depuis CurseForge pour DungeonJournal (adresses et redirections
+  vérifiées).
 - Empreinte SHA-256 de chaque fichier comparée à celle publiée par GitHub : refus si elle manque ou diffère.
+  CurseForge ne publie pas d'empreinte : pour DungeonJournal, l'installateur exige un fichier publié par le compte
+  de son auteur, à la taille exacte annoncée, ne contenant que le dossier de l'addon et des fichiers d'addon, avec
+  le bon fichier `.toc` (titre, auteur, version).
 - Archives contrôlées entrée par entrée : rien ne peut s'écrire hors du dossier prévu ; seuls les dossiers
   d'addons attendus sont installés.
 - L'ancienne version de chaque addon est rangée dans `Interface\AddOns_sauvegardes` (les 2 dernières sont gardées) ;
@@ -83,6 +100,7 @@ depuis 10 minutes et que WoW est fermé**. Les nouvelles versions comptent au la
 | `/iti` | afficher ou cacher la fenêtre |
 | `/iti pilote` | pilote automatique : marche / arrêt |
 | `/iti equipement` | la fenêtre Équipement |
+| `/iti dj [donjon]` | ouvrir DungeonJournal (sur un donjon) |
 | `/iti reglages` | tous les réglages (Trajet, Fenêtre, Équipement, Pilote, Questie & flèche) |
 | `/iti assistant` | les 5 questions du début |
 | `/iti rendus` | route des rendus (seulement les quêtes terminées) |
@@ -96,7 +114,8 @@ depuis 10 minutes et que WoW est fermé**. Les nouvelles versions comptent au la
 
 - `Itineraire/` : l'addon (Lua 5.1). `Data` (journal + Questie) → `Planner` (étapes, propositions) →
   `Solver` (ordre le plus court sous contraintes) → `Guide` (Shortest Path) → `UI` / `Options` ; `Gear` /
-  `GearUI` (équipement), `Group` (partage), `Core` (événements, calcul en tâche de fond).
+  `GearUI` (équipement), `DungeonJournal` (lecture de l'addon DungeonJournal en jeu), `Group` (partage),
+  `Pilote` (pilote automatique), `Core` (événements, calcul en tâche de fond).
 - `tests/` : faux WoW en Lua 5.1 exécuté avec [lupa](https://pypi.org/project/lupa/) :
 
   ```sh
@@ -116,6 +135,8 @@ Itinéraire s'appuie sur le travail d'autres projets (détail et licences : `THI
 
 - [Questie](https://github.com/Questie/Questie) / QuestieDB : quêtes, PNJ, objets (lus en jeu) ;
 - [Shortest Path Forever](https://github.com/cjber/shortest-path-forever) : la flèche et les trajets ;
+- [DungeonJournal](https://www.curseforge.com/wow/addons/dungeonjournal) (ExehnTV) : donjons, boss, butins et quêtes
+  de donjon de Forever, lus en jeu avec l'accord de son auteur (rien n'est copié) ;
 - les addons de [WoW-Forever-Addons](https://github.com/orgs/WoW-Forever-Addons/repositories) (DonCoohd) :
   butins des donjons et raids (Dropdon), entrées des donjons (DonData), recettes (Guildon Crafts), vendeurs et
   entraîneurs (Finddon) ;

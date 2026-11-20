@@ -474,7 +474,8 @@ local function BuildAddonsPage(page)
 	Header(page, "Mises à jour", -360)
 	LiveText(page, -378, function()
 		return "Itinéraire " .. tostring(ns.AddonVersion and ns.AddonVersion("Itineraire") or "?") .. " · " .. ns.InstallerText()
-			.. "\nPour tout garder à jour tout seul (Itinéraire, Questie, Shortest Path) : relance Installer-Itineraire.cmd"
+			.. "\n" .. tostring(ns.DJ.ReportLine and ns.DJ.ReportLine() or "DungeonJournal : relance WoW")
+			.. "\nPour tout garder à jour tout seul (Itinéraire, Questie, Shortest Path, DungeonJournal) : relance Installer-Itineraire.cmd"
 			.. " et réponds « o » à « Activer la mise à jour automatique ». Les mises à jour se font quand WoW est fermé"
 			.. " et que l'ordinateur est inutilisé ; elles comptent au lancement suivant."
 			.. "\nPaquet et nouveautés : " .. ns.HOME
@@ -565,8 +566,10 @@ local function BuildGearPage(page)
 		.. "PNJ, coffres, boss de TOUS les donjons et raids, et ce que tes métiers fabriquent (ouvre une fois ta fenêtre de "
 		.. "métier pour qu'il sache tes recettes). Les taux de butin ne sont pas connus.\n\n"
 		.. "« Y aller » ajoute la source au trajet (la flèche t'y emmène) ; l'objectif disparaît dès que l'objet est dans tes sacs.\n\n"
-		.. "Données reprises de Dropdon, DonData, Guildon Crafts, Finddon (DonCoohd), All The Things, CMaNGOS et "
-		.. "« Data from ForeverDB.net (https://foreverdb.net) » : licences dans TIERS.txt. Itinéraire est sous licence GPL v3.", -268)
+		.. "DungeonJournal (ExehnTV), s'il est installé, est lu pendant le jeu : butins de ses donjons et récompenses des "
+		.. "quêtes de donjon (rien n'est copié). Données reprises de Dropdon, DonData, Guildon Crafts, Finddon (DonCoohd), "
+		.. "All The Things, CMaNGOS et « Data from ForeverDB.net (https://foreverdb.net) » : licences dans TIERS.txt. "
+		.. "Itinéraire est sous licence GPL v3.", -268)
 end
 
 -- Pilote automatique : chaque partie se coupe à part.

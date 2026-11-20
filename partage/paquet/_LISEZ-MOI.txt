@@ -1,6 +1,6 @@
 ITINÉRAIRE — le trajet le plus court à travers ton journal de quêtes
 ===================================================================
-(WoW Forever, version 2.2.0 du 17/11/2026 — github.com/Calgar50/itineraire-wow-forever)
+(WoW Forever, version 2.3.0 du 20/11/2026 — github.com/Calgar50/itineraire-wow-forever)
 
 Ce paquet contient :
   - Installer-Itineraire.cmd   (l'installation en un double-clic)
@@ -24,9 +24,11 @@ INSTALLER (OU METTRE À JOUR) EN UN DOUBLE-CLIC
 L'installateur :
   - trouve tout seul le dossier de WoW Forever (sinon il te demande de le choisir) ;
   - installe ou met à jour Itinéraire, Questie (+ QuestieDB) et Shortest Path Forever
-    (+ ForeverCore), en prenant la dernière version publiée sur GitHub ;
-  - vérifie chaque fichier téléchargé (empreinte SHA-256 publiée par GitHub) et refuse
-    tout fichier douteux ;
+    (+ ForeverCore), en prenant la dernière version publiée sur GitHub, et DungeonJournal
+    (d'ExehnTV) depuis sa page CurseForge ;
+  - vérifie chaque fichier téléchargé (empreinte SHA-256 publiée par GitHub ; pour
+    DungeonJournal, que CurseForge ne fournit pas : auteur, taille exacte et contenu)
+    et refuse tout fichier douteux ;
   - ne remplace jamais une version plus récente que la sienne, et ne retélécharge rien
     si tout est déjà à jour ;
   - range les anciennes versions dans  _forever_\Interface\AddOns_sauvegardes
@@ -44,19 +46,23 @@ MISE À JOUR AUTOMATIQUE (si tu as répondu oui)
       powershell -ExecutionPolicy Bypass -File Installer-Itineraire.ps1 -DesactiverMajAuto
   - Ce qu'il a fait : %LOCALAPPDATA%\Itineraire\maj.log
 
-(Avec CurseForge, ça marche aussi : CurseForge garde Questie et Shortest Path à jour,
-l'installateur ne touchera pas à une version plus récente.)
+DungeonJournal sort presque tous les jours : la mise à jour automatique le suit.
+Tu n'en veux pas ? Supprime son dossier ForeverDungeonJournal (elle le laissera
+tranquille), ou installe avec -SansDungeonJournal.
+
+(Avec CurseForge, ça marche aussi : CurseForge garde Questie, Shortest Path et
+DungeonJournal à jour, l'installateur ne touchera pas à une version plus récente.)
 
 Installation à la main, si tu préfères : copie le dossier « Itineraire » dans
   World of Warcraft\_forever_\Interface\AddOns
-et installe Questie et Shortest Path Forever avec CurseForge.
+et installe Questie, Shortest Path Forever et DungeonJournal avec CurseForge.
 
 
 PREMIER LANCEMENT
 -----------------
 
 1. Sur l'écran de choix du personnage, bouton « AddOns » : vérifie que Itinéraire,
-   Questie, QuestieDB, Shortest Path Forever et ForeverCore sont cochés.
+   Questie, QuestieDB, Shortest Path Forever, ForeverCore et DungeonJournal sont cochés.
 2. Connecte-toi. Après quelques secondes, l'ASSISTANT pose 5 questions (le choix
    conseillé est déjà sélectionné, il suffit de cliquer « C'est parti ! ») :
      - seul ou en groupe ;
@@ -167,7 +173,23 @@ Dans la bulle d'une étape : le chemin prévu (« à pied 1 min · vol vers Orgr
   Équipement si besoin. Les chances de butin ne sont connues de personne.
 
 QUÊTES QUE QUESTIE NE SAIT PAS PLACER : Itinéraire prend le repère que le jeu dessine
-sur ta carte (la bulle de l'étape dit « approximatif »), au lieu de les laisser de côté.
+sur ta carte, ou celui de DungeonJournal pour les quêtes de donjon (la bulle de l'étape
+dit « approximatif »), au lieu de les laisser de côté.
+
+
+DUNGEONJOURNAL (d'ExehnTV, intégré avec l'accord de son auteur)
+-----------------------------------------------------------------
+
+Quand DungeonJournal est installé, Itinéraire lit ses donjons (les nouveaux donjons de
+Forever compris), boss, butins et quêtes de donjon PENDANT LE JEU : il est donc à jour
+dès que DungeonJournal l'est, sans attendre une version d'Itinéraire. Ça ajoute :
+  - dans la fenêtre Équipement : les butins de ses donjons et les récompenses des
+    quêtes de donjon, avec où prendre la quête (« Y aller » t'y emmène) ;
+  - un donjon ajouté au trajet (onglet Donjons) : ses quêtes à prendre AVANT d'y aller
+    sont ajoutées au trajet ;
+  - clic droit sur un donjon ou un objet : « Ouvrir dans DungeonJournal » ;
+  - /iti dj (ou /iti dj gouffre, /iti dj mortemines…) ouvre le journal.
+Rien de DungeonJournal n'est copié dans Itinéraire.
 
 
 JOUER À PLUSIEURS (2 à 5 joueurs)
@@ -201,6 +223,7 @@ Commandes :
   /iti              afficher ou cacher la fenêtre
   /iti pilote       pilote automatique : marche / arrêt
   /iti equipement   la fenêtre Équipement (et « Quel donjon faire ? » dans le menu …)
+  /iti dj           ouvrir DungeonJournal (/iti dj <donjon> : sur ce donjon)
   /iti reglages     tous les réglages
   /iti assistant    les 5 questions du début
   /iti bandeau      afficher ou cacher le bandeau
@@ -230,7 +253,8 @@ rien ne guide (ou bouton R).
 D'OÙ VIENNENT LES DONNÉES
 ------------------------
 
-Itinéraire lit Questie et Shortest Path Forever dans le jeu, et reprend les données
+Itinéraire lit Questie, Shortest Path Forever et DungeonJournal (ExehnTV) dans le jeu,
+et reprend les données
 d'autres addons Forever (Dropdon, DonData, Guildon Crafts, Finddon), d'All The Things,
 de CMaNGOS et « Data from ForeverDB.net (https://foreverdb.net) ». Merci à eux !
 Licence d'Itinéraire : GNU GPL v3 (Itineraire\LICENCE.txt, détails dans TIERS.txt).
