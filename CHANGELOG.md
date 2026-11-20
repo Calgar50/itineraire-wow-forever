@@ -260,3 +260,37 @@ Notes techniques de chaque version (la plus récente en bas). Pour l'usage, voir
   - Itinéraire s'inscrit au journal d'erreurs de ForeverCore via `ForeverCoreLoader.OnReady` quand le global
     `ForeverCore` n'existe pas encore (copie incluse publiée à la connexion) ; le rapport dit quelle copie tourne
     (`ForeverCoreLoader.Selected()`).
+- v2.4.0 (20/11/2026) : « automatiser la prise de talents, l'équipement utilisé, etc. ». Nouveau fichier
+  `Autonomie.lua` (`ns.Auto`, relancer WoW), réglé avec le pilote (`ns.db.pilote` : `talents` = « demander » / « auto »
+  / « non », `talentPlan` = « auto » (rôle) ou clé de plan, `equip`, `equipBoE` = « demander » / « auto » / « non »,
+  `bags`). Fenêtre de question à soi (pas de StaticPopup), une question à la fois, jamais en combat.
+  - Talents de Forever = arbre C_Traits (pas l'API Classic, absente) : `C_ClassTalents.GetActiveConfigID`, arbre
+    unique (`GetConfigInfo().treeIDs[1]`), onglets = groupes (`GetGroupDisplayInfoByTreeID`, triés par `orderIndex`),
+    points par onglet (`GetGroupCurrencyInfo`, onglet absent = 0), points libres (`GetTreeCurrencyInfo`), nœuds
+    (`GetNodeInfo` : `currentRank`, `maxRanks`, `canPurchaseRank`, `groupIDs`), sort du talent (`GetEntryInfo` →
+    `GetDefinitionInfo().spellID`). Tous les points libres du plan sont préparés (`PurchaseRank`, rangs comptés par
+    nous si le jeu ne les montre pas) puis appliqués en une incantation (`C_ClassTalents.CommitConfig`, sinon
+    `C_Traits.CommitConfig`) seulement immobile et hors combat ; `CONFIG_COMMIT_FAILED` = `RollbackConfig` puis nouvel
+    essai à l'arrêt ; rien si le joueur prépare des talents lui-même (`ConfigHasStagedChanges`). API Classic
+    (`GetTalentInfo` / `LearnTalent`) gardée en secours. Sources : code Blizzard de Forever (branche `forever` de
+    Gethe/wow-ui-source, 1.60.1.70959), notes publiques ForeverPlusPlus, addons Forever publiés.
+  - Plans guerrier (Protection tank, Armes) écrits sur les arbres de Forever (ForeverDB, build 70959 : 11 talents
+    nouveaux, 24 changés) ; un pas = un rang, reconnu par l'identifiant de son sort, puis son nom traduit, puis son nom
+    anglais ; vérifiés hors jeu (51 points, paliers de 5 points, rangs max). C'est le jeu (`canPurchaseRank`) qui dit si
+    un point est possible.
+  - Rôle de la fenêtre Équipement : sur Forever `GetTalentTabInfo` n'existe pas, donc le rôle tombait toujours sur
+    celui de la classe (guerrier = mêlée) ; il se lit maintenant dans les points par onglet (`Auto.TreePoints`, gardé
+    2 s car appelé à chaque bulle).
+  - Équipement : meilleur objet des sacs d'après `Gear.Evaluate` (≥ 2 points et ≥ 3 %, ou emplacement vide), un à la
+    fois, hors combat / incantation / objet au curseur ; `C_Container.PickupContainerItem` + `EquipCursorItem` (le bon
+    exemplaire), sinon `C_Item.EquipItemByName`. Lié quand équipé (type de lien 2, `isBound` faux) : question, puis
+    `EquipPendingItem` sur `EQUIP_BIND_CONFIRM` / `AUTOEQUIP_BIND_CONFIRM`. Objet remis à la main (changement d'emplacement
+    hors de nos 3 s) : laissé de côté pour la session. Objet porté à effet « Utiliser » : jamais remplacé tout seul.
+  - Sacs : emplacement de sac libre + sac ordinaire (classe 1, sous-classe 0) des sacs : `PickupContainerItem` +
+    `PutItemInBag`.
+  - `Pilote` : clés bloquées par le jeu `LearnTalent`, `EquipItemByName`, `EquipCursorItem`, `EquipPendingItem`
+    → talents / equip ; `PickupContainerItem`, `PutItemInBag` → bags ; rapport. `/iti talents`. Réglages : section
+    « Talents, équipement, sacs » de l'onglet Pilote (`ChoiceFn`), panneau agrandi à 690.
+  - Tests : `auto_test.lua` (API Classic factice : question, plan, combat, blocage ; équipement, lié quand équipé,
+    objet remis, bijou à effet, sac) et `auto_traits_test.lua` (C_Traits factice : préparer + appliquer immobile,
+    incantation interrompue, changements du joueur, rôle par onglet). 24 tests.

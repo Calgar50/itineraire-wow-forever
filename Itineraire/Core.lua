@@ -28,6 +28,11 @@ if not ns.Pilote then
 	ns.piloteMissing = true
 	ns.Pilote = Shell()
 end
+-- Autonomie.lua : nouveau en 2.4.0 (talents, équipement et sacs automatiques).
+if not ns.Auto then
+	ns.autoMissing = true
+	ns.Auto = Shell()
+end
 -- DungeonJournal.lua : nouveau en 2.3.0.
 if not ns.DJ then
 	ns.djMissing = true
@@ -40,6 +45,12 @@ ns.HOME = "github.com/Calgar50/itineraire-wow-forever"
 ns.INSTALLER_WANTED = 4
 -- Nouveautés affichées une fois après une mise à jour (pas de flèches Unicode : police du jeu incertaine).
 ns.NEWS = {
+	["2.4.0"] = {
+		"Le pilote met aussi tes TALENTS : il suit un plan selon ta classe et ton rôle (guerrier : Protection pour le tank, Armes sinon), arbres de Forever 1.60.1. Par défaut il demande avant chaque point (Apprendre / Plus tard / Toujours) ; /iti talents pour voir le plan.",
+		"Il ÉQUIPE tout seul ce qui t'améliore dans tes sacs (hors combat) ; un objet lié quand équipé : il demande d'abord. Tu remets ton ancien objet : il n'y touche plus.",
+		"Un sac dans tes sacs va dans un emplacement de sac libre. Tout se règle dans /iti reglages > Pilote.",
+		"Ton rôle (pour noter l'équipement) est enfin lu dans tes talents de Forever : avant, un guerrier sans réglage était toujours noté « mêlée », même tank.",
+	},
 	["2.3.1"] = {
 		"ForeverCore : Shortest Path inclut maintenant sa propre copie (plus récente). L'installateur 4 range l'ancien ForeverCore installé à part, qui déclenchait le message « ForeverCore … est plus ancien que le ForeverCore … inclus dans vos addons ».",
 		"Relance une fois l'installateur à la main (paquet sur la page des versions) : l'installateur 3 ne savait pas que ForeverCore n'est plus livré à part.",
@@ -946,8 +957,8 @@ function ns.CheckVersions()
 	end
 	if ns.gearMissing then
 		ns.Print("nouveaux fichiers dans cette version : |cffffff00quitte et relance complètement WoW|r pour avoir l'équipement.")
-	elseif ns.djMissing then
-		ns.Print("nouveau fichier dans cette version : |cffffff00quitte et relance complètement WoW|r pour lire DungeonJournal.")
+	elseif ns.djMissing or ns.autoMissing then
+		ns.Print("nouveau fichier dans cette version : |cffffff00quitte et relance complètement WoW|r (un /reload ne suffit pas).")
 	end
 end
 
@@ -1335,6 +1346,8 @@ function ns.ReportText()
 	if okPilote and piloteLine then
 		Add(piloteLine)
 	end
+	local okAuto, autoLine = pcall(ns.Auto.ReportLine)
+	Add(okAuto and autoLine and ("Autonomie : " .. autoLine) or ("Autonomie : " .. (ns.autoMissing and "fichier absent (relancer WoW)" or tostring(autoLine))))
 	local okGear, gearLine = pcall(ns.Gear.ReportLine)
 	Add(okGear and gearLine or ("Équipement : " .. (ns.gearMissing and "fichiers absents (relancer WoW)" or tostring(gearLine))))
 	local api = ns.Geo.SPApi()
@@ -1535,6 +1548,13 @@ SlashCmdList.ITINERAIRE = function(msg)
 		end
 	elseif msg == "version" or msg == "maj" then
 		ns.Print("Itinéraire " .. tostring(AddonVersion(ADDON)) .. " · " .. ns.InstallerText() .. " · " .. ns.HOME)
+	elseif msg == "talents" or msg == "talent" then
+		if ns.autoMissing then
+			ns.Print("les talents arrivent avec un nouveau fichier : quitte et relance complètement WoW.")
+		else
+			ns.Print(ns.Auto.TalentsText())
+			ns.Auto.CheckTalents("demande")
+		end
 	elseif msg == "dj" or msg:match("^dj ") or msg == "journal" then
 		if ns.djMissing then
 			ns.Print("DungeonJournal arrive avec un nouveau fichier d'Itinéraire : quitte et relance complètement WoW.")
@@ -1550,7 +1570,7 @@ SlashCmdList.ITINERAIRE = function(msg)
 			ns.DJ.Open(key)
 		end
 	else
-		ns.Print("/iti (fenêtre) · /iti pilote · /iti equipement · /iti dj [donjon] · /iti reglages · /iti assistant · /iti rapport · /iti bandeau · /iti r (recalculer) · /iti rendus · /iti reset · /iti rythme · /iti groupe · /iti donjons · /iti etat · /iti version · /iti stop · /iti debug")
+		ns.Print("/iti (fenêtre) · /iti pilote · /iti talents · /iti equipement · /iti dj [donjon] · /iti reglages · /iti assistant · /iti rapport · /iti bandeau · /iti r (recalculer) · /iti rendus · /iti reset · /iti rythme · /iti groupe · /iti donjons · /iti etat · /iti version · /iti stop · /iti debug")
 	end
 end
 

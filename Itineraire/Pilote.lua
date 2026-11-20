@@ -20,6 +20,8 @@ ns.Pilote = Pilote
 local DEFAULTS = {
 	on = true, accept = true, turnin = true, reward = false, grey = true, gossip = true, flights = true,
 	cinematics = true, merchant = true, trainer = true, itemButton = true,
+	-- Autonomie.lua : talents (« demander », « auto », « non »), plan (« auto » = selon ton rôle), équipement, sacs
+	talents = "demander", talentPlan = "auto", equip = true, equipBoE = "demander", bags = true,
 }
 Pilote.DEFAULTS = DEFAULTS
 Pilote.log = {}
@@ -797,6 +799,8 @@ local FUNC_KEY = {
 	TakeTaxiNode = "flights", CinematicFrame_CancelCinematic = "cinematics", StopCinematic = "cinematics",
 	StopMovie = "cinematics", RepairAllItems = "merchant", UseContainerItem = "merchant", BuyTrainerService = "trainer",
 	AcceptQuest = "accept", CompleteQuest = "turnin", GetQuestReward = "turnin", SelectOption = "gossip",
+	LearnTalent = "talents", EquipItemByName = "equip", EquipCursorItem = "equip", EquipPendingItem = "equip",
+	PickupContainerItem = "bags", PutItemInBag = "bags",
 }
 
 local function OnBlocked(addon, func)
@@ -868,6 +872,9 @@ end)
 -- Au démarrage (Questie prêt) et après chaque calcul du trajet.
 function Pilote.Init()
 	local cfg = Pilote.Config()
+	if ns.Auto and ns.Auto.Init then
+		pcall(ns.Auto.Init)
+	end
 	Pilote.CreateButton()
 	Pilote.SyncQuestie()
 	UpdateButton()
@@ -883,10 +890,12 @@ end
 function Pilote.ReportLine()
 	local cfg = Pilote.Config()
 	local parts = {}
-	for _, key in ipairs({ "accept", "turnin", "reward", "gossip", "flights", "cinematics", "merchant", "trainer", "itemButton" }) do
-		parts[#parts + 1] = key .. (blocked[key] and "=BLOQUÉ" or (cfg[key] and "" or "=non"))
+	for _, key in ipairs({ "accept", "turnin", "reward", "gossip", "flights", "cinematics", "merchant", "trainer", "itemButton",
+		"talents", "equip", "bags" }) do
+		local v = cfg[key]
+		parts[#parts + 1] = key .. (blocked[key] and "=BLOQUÉ" or type(v) == "string" and ("=" .. v) or (v and "" or "=non"))
 	end
 	return "Pilote : " .. (cfg.on and "ACTIF" or "arrêté") .. " · " .. table.concat(parts, " ")
-		.. (button and button.itemID and (" · objet " .. button.itemID) or "")
+		.. (button and rawget(button, "itemID") and (" · objet " .. rawget(button, "itemID")) or "")
 		.. (#Pilote.log > 0 and ("\n  dernières actions : " .. table.concat(Pilote.log, " | ")) or "")
 end

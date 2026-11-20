@@ -1,6 +1,6 @@
 ITINÉRAIRE — le trajet le plus court à travers ton journal de quêtes
 ===================================================================
-(WoW Forever, version 2.3.1 du 20/11/2026 — github.com/Calgar50/itineraire-wow-forever)
+(WoW Forever, version 2.4.0 du 20/11/2026 — github.com/Calgar50/itineraire-wow-forever)
 
 Ce paquet contient :
   - Installer-Itineraire.cmd   (l'installation en un double-clic)
@@ -115,7 +115,19 @@ Comme les guides « autopilot » : tout ce que le jeu permet aux addons.
   - chez un marchand qui répare : il répare et vend les objets gris ;
   - chez ton maître de classe : il apprend toutes les techniques disponibles ;
   - un BOUTON apparaît avec l'objet de quête à utiliser (MAJ + glisser pour le déplacer ;
-    raccourci clavier : Échap > Options > Raccourcis > AddOns > Itinéraire).
+    raccourci clavier : Échap > Options > Raccourcis > AddOns > Itinéraire) ;
+  - TALENTS : il suit un plan selon ta classe et ton rôle (guerrier pour l'instant :
+    Protection pour le tank, Armes sinon). Par défaut, une petite fenêtre demande avant
+    chaque point : « Apprendre », « Plus tard » (redemande au niveau suivant) ou
+    « Toujours » (il les met tout seul ensuite). Un point ne se reprend que contre de l'or
+    chez le maître de classe, d'où la question. Le jeu apprend les talents par une courte
+    incantation : reste immobile quelques secondes (il attend que tu t'arrêtes).
+    /iti talents : le plan et le prochain point. Autre plan : /iti reglages > Pilote ;
+  - ÉQUIPEMENT : il met tout seul, hors combat, l'objet de tes sacs qui t'améliore (au
+    moins +3 %). Objet « lié quand équipé » pas encore lié : il te demande d'abord. Tu
+    remets ton ancien objet : il n'y touche plus. Un objet porté qui a un effet
+    « Utiliser » (bijou…) n'est jamais remplacé tout seul ;
+  - SACS : un sac de tes sacs va dans un emplacement de sac libre.
 MAJ (Shift) maintenue en parlant à un PNJ : il ne touche à rien, tu choisis toi-même.
 Ton personnage ne se déplace JAMAIS tout seul : le jeu l'interdit aux addons (un
 programme qui le ferait serait un bot, interdit et sanctionné).
@@ -225,6 +237,7 @@ recalculer (et reprendre le guidage s'il était en pause).
 Commandes :
   /iti              afficher ou cacher la fenêtre
   /iti pilote       pilote automatique : marche / arrêt
+  /iti talents      plan de talents suivi et prochain point
   /iti equipement   la fenêtre Équipement (et « Quel donjon faire ? » dans le menu …)
   /iti dj           ouvrir DungeonJournal (/iti dj <donjon> : sur ce donjon)
   /iti reglages     tous les réglages

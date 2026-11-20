@@ -44,7 +44,15 @@ Il ne suit pas un guide figé : le trajet se recalcule à chaque quête prise, r
   le trajet, passe les cinématiques, répare et vend les objets gris, apprend tes techniques chez le maître de classe, et
   affiche un bouton (avec raccourci) pour l'objet de quête à utiliser maintenant. Option : prendre aussi la récompense
   conseillée. MAJ (Shift) en parlant à un PNJ : tu reprends la main. Le personnage ne se déplace jamais tout seul : le
-  jeu l'interdit aux addons. Si le jeu bloque une action, cette partie se coupe toute seule.
+  jeu l'interdit aux addons. Si le jeu bloque une action, cette partie se coupe toute seule. Il s'occupe aussi :
+  - de tes **talents** : il suit un plan selon ta classe et ton rôle (guerrier pour l'instant : Protection pour le tank,
+    Armes sinon ; arbres de Forever 1.60.1) ; par défaut il demande avant chaque point (Apprendre / Plus tard /
+    Toujours), car un point ne se reprend que contre de l'or. Sur Forever, le jeu applique les talents par une courte
+    incantation : il attend que tu sois immobile. `/iti talents` montre le plan ;
+  - de ton **équipement** : il met tout seul (hors combat) l'objet de tes sacs qui t'améliore d'au moins 3 % ; un objet
+    lié quand équipé pas encore lié : il demande ; tu remets ton ancien objet : il n'y touche plus ; un objet porté à
+    effet « Utiliser » n'est pas remplacé ;
+  - de tes **sacs** : un sac de tes sacs va dans un emplacement de sac libre.
 - **Les quêtes que Questie ne sait pas placer** : Itinéraire prend le repère que le jeu dessine sur la carte (et
   DonData s'il est installé), au lieu de les laisser de côté.
 - **À plusieurs** (2 à 5 joueurs, désactivé par défaut) : le chef de groupe calcule un seul trajet avec les
@@ -100,6 +108,7 @@ suffit pour qu'elle le laisse tranquille).
 | --- | --- |
 | `/iti` | afficher ou cacher la fenêtre |
 | `/iti pilote` | pilote automatique : marche / arrêt |
+| `/iti talents` | plan de talents suivi et prochain point (et la question, s'il y a un point à mettre) |
 | `/iti equipement` | la fenêtre Équipement |
 | `/iti dj [donjon]` | ouvrir DungeonJournal (sur un donjon) |
 | `/iti reglages` | tous les réglages (Trajet, Fenêtre, Équipement, Pilote, Questie & flèche) |

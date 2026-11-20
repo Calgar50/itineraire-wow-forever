@@ -294,6 +294,47 @@ local function Choice(parent, label, key, list, x, y)
 	return holder
 end
 
+-- Choix branché sur une lecture / écriture (list = { { key, label, width? }, … } ou une fonction qui la rend).
+local function ChoiceFn(parent, label, list, get, set, x, y)
+	local holder = CreateFrame("Frame", nil, parent)
+	holder:SetSize(420, 40)
+	holder:SetPoint("TOPLEFT", x, y)
+	holder.label = holder:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	holder.label:SetPoint("TOPLEFT", 0, 0)
+	holder.label:SetText(label)
+	holder.buttons = {}
+	holder.Refresh = function(self)
+		local items = type(list) == "function" and list() or list
+		for i, item in ipairs(items) do
+			local b = self.buttons[i]
+			if not b then
+				b = ns.UI.Skin.Button(self, "", 70, 20)
+				self.buttons[i] = b
+			end
+			b:SetText(item.label)
+			b:SetWidth(item.width or 70)
+			b:ClearAllPoints()
+			if i == 1 then
+				b:SetPoint("TOPLEFT", 0, -15)
+			else
+				b:SetPoint("LEFT", self.buttons[i - 1], "RIGHT", 3, 0)
+			end
+			b:SetScript("OnClick", function()
+				set(item.key)
+				Apply()
+				Options.Refresh()
+			end)
+			b:SetSelected(get() == item.key)
+			b:Show()
+		end
+		for i = #items + 1, #self.buttons do
+			self.buttons[i]:Hide()
+		end
+	end
+	controls[#controls + 1] = holder
+	return holder
+end
+
 local function Button(parent, text, width, onClick)
 	local b = ns.UI.Skin.Button(parent, text, width, 22, onClick)
 	controls[#controls + 1] = { Refresh = function()
@@ -624,6 +665,59 @@ local function BuildPilotPage(page)
 		end
 	end)
 	reset:SetPoint("TOPLEFT", 14, -372)
+
+	-- Talents, équipement, sacs (Autonomie.lua)
+	Header(page, "Talents, équipement, sacs", -404)
+	if ns.autoMissing then
+		Note(page, "Nouveau fichier : quitte et relance complètement WoW.", -424)
+		return
+	end
+	local cfg = P.Config
+	ChoiceFn(page, "Talents (un point ne se reprend que contre de l'or) :", {
+		{ key = "demander", label = "Demander", width = 80 }, { key = "auto", label = "Automatique", width = 90 },
+		{ key = "non", label = "Non", width = 50 },
+	}, function()
+		return cfg().talents
+	end, function(v)
+		cfg().talents = v
+		ns.Auto.Soon(0.3)
+	end, 16, -422)
+	ChoiceFn(page, "Plan de talents :", function()
+		local items = { { key = "auto", label = "Selon mon rôle", width = 104 } }
+		for _, p in ipairs(ns.Auto.PlanChoices() or {}) do
+			items[#items + 1] = { key = p.key, label = p.label, width = 170 }
+		end
+		return items
+	end, function()
+		return cfg().talentPlan
+	end, function(v)
+		cfg().talentPlan = v
+	end, 16, -462)
+	LiveText(page, -504, function()
+		return ns.Auto.TalentsText()
+	end)
+	CheckFn(page, "Mettre tout seul l'équipement qui m'améliore (hors combat)",
+		"D'après la note de la fenêtre Équipement (au moins +3 %). Tu remets ton ancien objet : il n'y touche plus. Un objet porté qui a un effet « Utiliser » n'est pas remplacé.",
+		function()
+			return cfg().equip ~= false
+		end, function(v)
+			cfg().equip = v
+			ns.Auto.Soon(0.3)
+		end, 16, -522)
+	ChoiceFn(page, "Objet « lié quand équipé » pas encore lié :", {
+		{ key = "demander", label = "Demander", width = 80 }, { key = "auto", label = "Équiper", width = 70 },
+		{ key = "non", label = "Laisser", width = 60 },
+	}, function()
+		return cfg().equipBoE
+	end, function(v)
+		cfg().equipBoE = v
+	end, 16, -548)
+	CheckFn(page, "Mettre un sac de mes sacs dans un emplacement de sac libre", "Sacs ordinaires seulement.", function()
+		return cfg().bags ~= false
+	end, function(v)
+		cfg().bags = v
+		ns.Auto.Soon(0.3)
+	end, 230, -548)
 end
 
 local PAGES = {
@@ -645,7 +739,7 @@ end
 
 local function Build()
 	panel = CreateFrame("Frame", "ItineraireOptions", UIParent, "BackdropTemplate")
-	panel:SetSize(480, 600)
+	panel:SetSize(480, 690)
 	panel:SetPoint("CENTER")
 	panel:SetFrameStrata("DIALOG")
 	panel:SetClampedToScreen(true)

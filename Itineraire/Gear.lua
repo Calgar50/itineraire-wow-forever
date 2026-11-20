@@ -167,8 +167,17 @@ local CLASS_ROLE = {
 	DRUID = "caster", PRIEST = "caster", MAGE = "caster", WARLOCK = "caster",
 }
 
--- Points dépensés dans l'arbre `tab` (les deux formes de GetTalentTabInfo selon la version du jeu).
+-- Points dépensés dans l'arbre `tab` : sur Forever, les talents sont un arbre C_Traits (lu par Autonomie.lua) ;
+-- sinon les deux formes de GetTalentTabInfo selon la version du jeu.
 local function TreePoints(tab)
+	local A = ns.Auto
+	local okA, trees = false, nil
+	if A and type(A.TreePoints) == "function" then
+		okA, trees = pcall(A.TreePoints)
+	end
+	if okA and type(trees) == "table" and trees[tab] then
+		return Num(trees[tab].points), trees[tab].name
+	end
 	if not GetTalentTabInfo then
 		return nil, nil
 	end
