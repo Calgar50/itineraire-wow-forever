@@ -45,6 +45,12 @@ ns.HOME = "github.com/Calgar50/itineraire-wow-forever"
 ns.INSTALLER_WANTED = 4
 -- Nouveautés affichées une fois après une mise à jour (pas de flèches Unicode : police du jeu incertaine).
 ns.NEWS = {
+	["2.6.0"] = {
+		"Guerrier : tes barres d'action RANGÉES PAR POSTURE. La barre principale change avec la posture ; chaque touche y garde le même rôle (1 Charge / Interception, 2 Frappe héroïque, 3 Fulgurance / Vengeance / Tourbillon, 5 Fracasser l'armure, 8 interrompre, 9 provoquer, 12 survie…) et les cris vont sur la barre du dessus. Une question au démarrage (Ranger / Plus tard / Jamais) ; /iti barres pour voir chaque touche, /iti barres annuler pour revenir.",
+		"Ensuite le pilote entretient le rangement : un nouveau sort va à sa touche ; une case que tu changes reste à toi. Tes objets et macros sont déplacés vers une case libre, jamais effacés.",
+		"Nouveau bouton LIVRE dans la barre de titre : il ouvre DungeonJournal sur le donjon où tu es, sinon sur le prochain donjon de ton trajet (clic droit : les donjons de ton niveau). Raccourci clavier possible : Échap > Raccourcis > Itinéraire.",
+		"Corrigé : la note d'équipement (et donc l'équipement automatique) plantait quand le jeu cachait ton armure (valeur « secrète » de Forever).",
+	},
 	["2.5.0"] = {
 		"Plans de talents pour TOUTES les classes et tous les rôles (tank, mêlée, distance, sorts, soins), écrits pour les arbres de Forever 1.60.1 ; choix du plan : /iti reglages > Pilote (ou /iti talents).",
 		"Les barres d'action se remplissent seules : les sorts de ta classe qui n'y sont pas vont dans les cases vides, et un sort passe à son rang supérieur dès que tu l'apprends (à la même place). Un sort que tu enlèves n'y revient plus.",
@@ -1559,6 +1565,12 @@ SlashCmdList.ITINERAIRE = function(msg)
 			ns.Print(ns.Auto.TalentsText())
 			ns.Auto.CheckTalents("demande")
 		end
+	elseif msg == "barres" or msg == "barre" or msg:match("^barres? ") then
+		if ns.autoMissing then
+			ns.Print("les barres d'action arrivent avec un nouveau fichier : quitte et relance complètement WoW.")
+		else
+			ns.Auto.BarsCommand(msg:match("^barres?%s+(%S+)"))
+		end
 	elseif msg == "dj" or msg:match("^dj ") or msg == "journal" then
 		if ns.djMissing then
 			ns.Print("DungeonJournal arrive avec un nouveau fichier d'Itinéraire : quitte et relance complètement WoW.")
@@ -1571,10 +1583,14 @@ SlashCmdList.ITINERAIRE = function(msg)
 			if wanted and not key then
 				ns.Print("aucun donjon de DungeonJournal ne s'appelle « " .. wanted .. " » : journal ouvert sur sa page d'accueil.")
 			end
-			ns.DJ.Open(key)
+			if wanted then
+				ns.DJ.Open(key)
+			else
+				ns.DJ.Button(false) -- le donjon où tu es, sinon celui de ton trajet
+			end
 		end
 	else
-		ns.Print("/iti (fenêtre) · /iti pilote · /iti talents · /iti equipement · /iti dj [donjon] · /iti reglages · /iti assistant · /iti rapport · /iti bandeau · /iti r (recalculer) · /iti rendus · /iti reset · /iti rythme · /iti groupe · /iti donjons · /iti etat · /iti version · /iti stop · /iti debug")
+		ns.Print("/iti (fenêtre) · /iti pilote · /iti talents · /iti barres · /iti equipement · /iti dj [donjon] · /iti reglages · /iti assistant · /iti rapport · /iti bandeau · /iti r (recalculer) · /iti rendus · /iti reset · /iti rythme · /iti groupe · /iti donjons · /iti etat · /iti version · /iti stop · /iti debug")
 	end
 end
 
@@ -1588,11 +1604,20 @@ BINDING_NAME_ITINERAIRE_SKIP = "Passer l'étape en cours"
 BINDING_NAME_ITINERAIRE_OPTIONS = "Ouvrir la personnalisation"
 BINDING_NAME_ITINERAIRE_TURNINS = "Route des rendus (quêtes terminées)"
 BINDING_NAME_ITINERAIRE_PILOTE = "Pilote automatique : marche / arrêt"
+BINDING_NAME_ITINERAIRE_DJ = "Journal des donjons (DungeonJournal)"
 _G["BINDING_NAME_CLICK ItineraireItemButton:LeftButton"] = "Utiliser l'objet de quête (pilote)"
 
 function Itineraire_Pilote()
 	if not ns.piloteMissing then
 		ns.Pilote.SetOn(not ns.Pilote.Config().on)
+	end
+end
+
+function Itineraire_DungeonJournal()
+	if ns.djMissing then
+		ns.Print("DungeonJournal arrive avec un nouveau fichier d'Itinéraire : quitte et relance complètement WoW.")
+	else
+		ns.DJ.Button(false)
 	end
 end
 

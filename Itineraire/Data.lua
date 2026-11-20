@@ -1119,7 +1119,17 @@ end
 local poi, poiAt = {}, -100
 
 local function Num(v)
-	return type(v) == "number" and v or nil
+	if type(v) ~= "number" then
+		return nil
+	end
+	-- Forever : une valeur « secrète » (combat, instance) a le type number mais refuse tout calcul
+	local ok, secret = pcall(function()
+		return (issecretvalue and issecretvalue(v)) or (canaccessvalue and not canaccessvalue(v)) or false
+	end)
+	if not ok or secret then
+		return nil
+	end
+	return v
 end
 
 local function ReadPOI()

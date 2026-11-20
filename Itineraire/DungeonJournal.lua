@@ -408,18 +408,94 @@ function DJ.Open(key, questID, bossIndex)
 	return true
 end
 
--- Un donjon d'après un bout de son nom (dans la langue du jeu ou en anglais) : sa clé, ou nil.
+-- Un donjon d'après son nom ou un bout de son nom (dans la langue du jeu ou en anglais) : sa clé, ou nil. Marche
+-- aussi dans l'autre sens (« Les Mortemines » de Questie trouve « Mortemines »).
 function DJ.Find(text)
 	local want = tostring(text or ""):lower()
 	if want == "" then
 		return nil
 	end
-	for _, d in ipairs(DJ.Dungeons()) do
+	local list = DJ.Dungeons()
+	for _, d in ipairs(list) do
+		if d.name:lower() == want or d.english:lower() == want then
+			return d.key
+		end
+	end
+	for _, d in ipairs(list) do
 		if d.name:lower():find(want, 1, true) or d.english:lower():find(want, 1, true) then
 			return d.key
 		end
 	end
+	for _, d in ipairs(list) do
+		local n, e = d.name:lower(), d.english:lower()
+		if (#n >= 5 and want:find(n, 1, true)) or (#e >= 5 and want:find(e, 1, true)) then
+			return d.key
+		end
+	end
 	return nil
+end
+
+-- Le donjon qui t'intéresse maintenant : celui où tu es, sinon le premier donjon de ton trajet. Clé et raison
+-- (« ici », « trajet »), ou nil.
+function DJ.CurrentKey()
+	if Call(rawget(_G, "IsInInstance")) then
+		local name = Call(rawget(_G, "GetInstanceInfo"))
+		local key = type(name) == "string" and DJ.Find(name) or nil
+		if key then
+			return key, "ici"
+		end
+	end
+	local plan = ns.plan
+	for _, s in ipairs(type(plan) == "table" and type(plan.order) == "table" and plan.order or {}) do
+		for _, task in ipairs(type(s) == "table" and type(s.tasks) == "table" and s.tasks or {}) do
+			if type(task) == "table" and task.kind == "dungeon" and task.areaId and ns.Data and ns.Data.DungeonName then
+				local key = DJ.Find(ns.Data.DungeonName(task.areaId))
+				if key then
+					return key, "trajet"
+				end
+			end
+		end
+	end
+	return nil
+end
+
+-- Le bouton « Journal des donjons » (fenêtre d'Itinéraire, raccourci clavier) : clic = le donjon où tu es, sinon
+-- celui de ton trajet, sinon l'accueil du journal ; `menu` = choisir parmi les donjons de ton niveau.
+function DJ.Button(menu)
+	if not DJ.NS() then
+		ns.Print(DJ.ReportLine() .. ". Relance l'installateur d'Itinéraire (il l'installe et le tient à jour) ou prends-le sur "
+			.. DJ.URL .. ".")
+		return false
+	end
+	local current = DJ.CurrentKey()
+	if not menu then
+		return DJ.Open(current)
+	end
+	local level = Call(rawget(_G, "UnitLevel"), "player")
+	level = type(level) == "number" and level or 1
+	local items = { { text = "Journal des donjons (niveau " .. level .. ")", title = true } }
+	local list = DJ.Dungeons()
+	table.sort(list, function(a, b)
+		if a.min ~= b.min then
+			return (a.min or 0) < (b.min or 0)
+		end
+		return a.name < b.name
+	end)
+	for _, d in ipairs(list) do
+		local fits = not d.chain and level >= (d.min or 1) - 3 and level <= (d.max or 60) + 2
+		if fits or d.key == current then
+			items[#items + 1] = { text = d.name .. " (" .. tostring(d.min) .. "-" .. tostring(d.max) .. ")",
+				checked = d.key == current, func = function()
+					DJ.Open(d.key)
+				end }
+		end
+	end
+	items[#items + 1] = { text = "Tous les donjons (accueil du journal)", func = function()
+		DJ.Open(nil)
+	end }
+	items[#items + 1] = { text = "Fermer" }
+	ns.UI.ShowMenu(items)
+	return true
 end
 
 -------------------------------------------------------------------------------

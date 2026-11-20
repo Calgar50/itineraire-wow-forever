@@ -5,5 +5,6 @@
 	<Binding name="ITINERAIRE_OPTIONS" category="ADDONS">Itineraire_Options()</Binding>
 	<Binding name="ITINERAIRE_TURNINS" category="ADDONS">Itineraire_Turnins()</Binding>
 	<Binding name="ITINERAIRE_PILOTE" category="ADDONS">Itineraire_Pilote()</Binding>
+	<Binding name="ITINERAIRE_DJ" category="ADDONS">Itineraire_DungeonJournal()</Binding>
 	<Binding name="CLICK ItineraireItemButton:LeftButton" category="ADDONS"/>
 </Bindings>

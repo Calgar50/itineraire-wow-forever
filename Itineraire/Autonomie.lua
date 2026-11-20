@@ -7,7 +7,8 @@
 --     objet : il n'y touche plus (pour la session).
 --   - SACS : un sac de tes sacs va dans un emplacement de sac libre.
 --   - BARRES D'ACTION : les sorts de ta classe qui n'y sont pas vont dans les cases vides, et un sort passe à son rang
---     supérieur dès que tu l'apprends (à la même place).
+--     supérieur dès que tu l'apprends (à la même place). Guerrier : barres RANGÉES PAR POSTURE (même rôle sur la même
+--     touche dans chaque posture), proposé une fois, puis entretenu ; /iti barres.
 -- Tout passe par le pilote (marche / arrêt, une case par partie) ; si le jeu bloque une action, la partie se coupe.
 --
 -- Les plans de talents sont écrits pour WoW Forever 1.60.1 (arbres du client, build 70959 : talents nouveaux ou
@@ -30,10 +31,17 @@ local function Call(fn, ...)
 end
 
 local function Num(v)
-	local ok, n = pcall(function()
-		return type(v) == "number" and v or nil
+	if type(v) ~= "number" then
+		return nil
+	end
+	-- Forever : une valeur « secrète » (combat, instance) a le type number mais refuse tout calcul
+	local ok, secret = pcall(function()
+		return (issecretvalue and issecretvalue(v)) or (canaccessvalue and not canaccessvalue(v)) or false
 	end)
-	return ok and n or nil
+	if not ok or secret then
+		return nil
+	end
+	return v
 end
 
 local function Level()
@@ -1745,16 +1753,701 @@ local function PutSpell(id, slot)
 	return ok
 end
 
-local barState -- ns.char.actionbars = { placed = { [nom] = true }, removed = { [nom] = true } }
+-- ns.char.actionbars = { placed = { [nom] = true }, removed = { [nom] = true }, layout = version | "non",
+--   owned = { [case] = nom }, locked = { [case] = true }, parked = { [case] = { kind, id } } (objet ou macro mis par
+--   nous sur une touche libre d'une page de posture, faute de place ailleurs), journal = { at, ops } }
 local function BarState()
 	local char = ns.char or {}
 	char.actionbars = type(char.actionbars) == "table" and char.actionbars or {}
 	local s = char.actionbars
 	s.placed = type(s.placed) == "table" and s.placed or {}
 	s.removed = type(s.removed) == "table" and s.removed or {}
+	s.owned = type(s.owned) == "table" and s.owned or {}
+	s.locked = type(s.locked) == "table" and s.locked or {}
+	s.parked = type(s.parked) == "table" and s.parked or {}
 	return s
 end
 local fullWarned
+
+-- Un sort de la barre dont tu connais un rang supérieur passe à ce rang, partout où il est (même place).
+local function UpgradeRanks(byName, done)
+	local seen = {}
+	local highest = C_ActionBar and C_ActionBar.IsHighestSpellRank
+	for slot = 1, 180 do
+		local kind, id = Call(GetActionInfo, slot)
+		id = Num(id)
+		if kind == "spell" and id then
+			local name = SpellNameOf(id)
+			local best = name and byName[name]
+			if best and best ~= id then
+				local outdated = highest and Call(highest, id) == false or (not highest and RankOf(best) > RankOf(id))
+				if outdated and PutSpell(best, slot) and not seen[name] then
+					seen[name] = true
+					done[#done + 1] = name .. " (rang supérieur)"
+				end
+			end
+		end
+	end
+end
+
+-------------------------------------------------------------------------------
+-- Barres rangées par posture (guerrier)
+--   La barre principale change avec la posture (une page de 12 cases par posture). Chaque touche y garde le MÊME
+--   RÔLE dans chaque posture : 1 engager (Charge / Interception), 3 riposte (Fulgurance / Vengeance / Tourbillon),
+--   8 interrompre, 9 provoquer, 12 survie… ; Frappe héroïque (2), Fracasser l'armure (5) et la grosse frappe (4 :
+--   Heurt de bouclier, Frappe mortelle ou Sanguinaire ; avant : Sursaut de victoire) sont sur la même touche partout.
+--   Un sort absent d'une page où il marche (cris, Rage sanguinaire, Enchaînement…) va sur la BARRE FIXE : la première
+--   barre affichée en plus de la principale (la même dans toutes les postures).
+--   Postures requises : celles de Forever 1.60.1 (ForeverDB, build 70959) : Coup de tonnerre en Combat ET en
+--   Défensive, Charge aussi en Défensive avec le talent Avant-garde.
+--   Rangement complet (une question, une fois ; ou /iti barres ranger) : tes objets et macros des touches du
+--   rangement vont dans une case libre affichée (jamais effacés ; sans case libre, la touche reste à toi), et tout
+--   est noté pour /iti barres annuler. Ensuite, entretien : un nouveau sort va à sa touche si elle est vide (ou tenue
+--   par un sort que nous y avions mis en attendant) ; une case que tu changes reste à toi.
+-------------------------------------------------------------------------------
+local SHIELD_SPELLS = { [72] = true, [2565] = true, [871] = true, [23922] = true } -- demandent un bouclier
+local STRIKE = { 23922, 12294, 23881, 402927 } -- Heurt de bouclier, Frappe mortelle, Sanguinaire ; Sursaut de victoire
+local LAYOUTS = {
+	WARRIOR = {
+		version = 1,
+		ask = "Ranger tes barres d'action par posture ?\nChaque touche garde le même rôle dans chaque posture (1 Charge, "
+			.. "3 Fulgurance / Vengeance, 8 interrompre, 9 provoquer, 12 survie…) ; les cris et les autres sorts vont sur "
+			.. "la barre du dessus. Tes objets et macros sont déplacés, jamais effacés. /iti barres annuler pour revenir.",
+		-- postures : leur sort et leur page de la barre principale (GetBonusBarOffset)
+		stances = {
+			{ spell = 2457, offset = 1, label = "Combat" },
+			{ spell = 71, offset = 2, label = "Défensive" },
+			{ spell = 2458, offset = 3, label = "Berserker" },
+		},
+		-- postures où un sort marche (absent = toutes) : [posture] = true, ou le talent qui l'y permet
+		only = {
+			[100] = { [1] = true, [2] = 1310317 }, -- Charge (Défensive : talent Avant-garde)
+			[7384] = { [1] = true }, -- Fulgurance
+			[694] = { [1] = true }, -- Coup railleur
+			[20230] = { [1] = true }, -- Représailles
+			[12292] = { [1] = true }, -- Attaques circulaires
+			[1310222] = { [1] = true }, -- Spearing Strike (Forever)
+			[772] = { [1] = true, [2] = true }, -- Pourfendre
+			[6343] = { [1] = true, [2] = true }, -- Coup de tonnerre (Forever : aussi en Défensive)
+			[72] = { [1] = true, [2] = true }, -- Coup de bouclier
+			[1715] = { [1] = true, [3] = true }, -- Brise-genou
+			[5308] = { [1] = true, [3] = true }, -- Exécution
+			[355] = { [2] = true }, -- Provocation
+			[676] = { [2] = true }, -- Désarmement
+			[6572] = { [2] = true }, -- Vengeance
+			[2565] = { [2] = true }, -- Maîtrise du blocage
+			[871] = { [2] = true }, -- Mur protecteur
+			[1680] = { [3] = true }, -- Tourbillon
+			[1719] = { [3] = true }, -- Témérité
+			[18499] = { [3] = true }, -- Rage berserker
+			[20252] = { [3] = true }, -- Interception
+			[6552] = { [3] = true }, -- Volée de coups
+		},
+		-- touches 1 à 12 : { rôle, { Combat }, { Défensive }, { Berserker } } ; dans chaque liste, le premier sort connu
+		-- (et permis dans la posture) qui n'est pas déjà sur la page
+		keys = {
+			{ "engager", { 100 }, { 100 }, { 20252 } },
+			{ "frappe héroïque", { 78 }, { 78 }, { 78 } },
+			{ "riposte", { 7384 }, { 6572 }, { 1680 } },
+			{ "grosse frappe", STRIKE, STRIKE, STRIKE },
+			{ "fracasser l'armure", { 7386 }, { 7386 }, { 7386 } },
+			{ "zone", { 6343 }, { 6343 }, { 845 } },
+			{ "entretien", { 772 }, { 2565, 772 }, { 18499 } },
+			{ "interrompre", { 72, 12292, 1310222 }, { 72 }, { 6552 } },
+			{ "provoquer", { 694 }, { 355 }, { 1161 } },
+			{ "achever / affaiblir", { 5308 }, { 1160 }, { 5308 } },
+			{ "contrôle", { 1715 }, { 676 }, { 1715 } },
+			{ "survie", { 20230 }, { 871, 12975 }, { 1719 } },
+		},
+		-- ordre de la barre fixe (les sorts que ce tableau ne connaît pas suivent, dans l'ordre du grimoire)
+		static = { 402927, 2687, 6673, 1160, 845, 772, 12975, 12809, 5246, 1161, 1240193, 12323, 12328, 1329555, 12292,
+			1310222, 18499, 72 },
+	},
+}
+Auto.LAYOUTS = LAYOUTS
+
+local function SpellKnown(id)
+	if not id then
+		return false
+	end
+	return Call(rawget(_G, "IsPlayerSpell"), id) == true or Call(rawget(_G, "IsSpellKnown"), id) == true
+		or (C_SpellBook and Call(C_SpellBook.IsSpellKnown, id) == true) or false
+end
+
+local function Usable(layout, rank1, index)
+	local only = rank1 and layout.only[rank1]
+	if not only then
+		return true
+	end
+	local v = only[index]
+	return v == true or (type(v) == "number" and SpellKnown(v))
+end
+
+-- Bouclier porté, ou rôle tank : les sorts de bouclier ont leur touche.
+local function ShieldOK()
+	local link = Call(rawget(_G, "GetInventoryItemLink"), "player", 17)
+	if type(link) == "string" then
+		local fn = (C_Item and C_Item.GetItemInfoInstant) or rawget(_G, "GetItemInfoInstant")
+		local _, _, _, _, _, classID, subclassID = Call(fn, link)
+		if Num(classID) == 4 and Num(subclassID) == 6 then
+			return true
+		end
+	end
+	return ns.Gear and ns.Gear.Role and Call(ns.Gear.Role) == "tank" or false
+end
+
+-- Case d'une touche (1 à 12) de la page `offset` de la barre principale (posture 1 : cases 73 à 84, etc.).
+local function PageSlot(offset, key)
+	local pages = Num(rawget(_G, "NUM_ACTIONBAR_PAGES")) or 6
+	local per = Num(rawget(_G, "NUM_ACTIONBAR_BUTTONS")) or 12
+	return (pages + offset - 1) * per + key
+end
+
+-- La barre principale suit-elle les pages qu'on croit ? Sinon on ne touche à rien (raison pour /iti rapport).
+local function PagingProblem()
+	local offset = Num(Call(rawget(_G, "GetBonusBarOffset"))) or 0
+	local b = rawget(_G, "ActionButton1")
+	local slot = type(b) == "table" and ButtonSlot(b) or nil
+	if offset > 0 and slot and slot ~= PageSlot(offset, 1) then
+		return "la barre principale montre la case " .. slot .. " dans cette posture (page " .. offset .. ", attendu "
+			.. PageSlot(offset, 1) .. ")"
+	end
+end
+
+-- Ce qu'il y a dans une case : { kind, id, name (sort), class (sort de ta classe) } ou nil.
+local function SlotContent(slot, byName)
+	local kind, id = Call(GetActionInfo, slot)
+	if type(kind) ~= "string" then
+		return nil
+	end
+	local c = { kind = kind, id = Num(id) }
+	if kind == "spell" and c.id then
+		c.name = SpellNameOf(c.id)
+		c.class = c.name ~= nil and byName[c.name] ~= nil
+	end
+	return c
+end
+
+-- Les barres affichées en plus de la principale : la barre fixe (la première) et les cases des autres.
+local function ExtraBars()
+	local fixed, others = nil, {}
+	for _, bar in ipairs(MULTI_BARS) do
+		local slots = {}
+		for i = 1, 12 do
+			local b = rawget(_G, bar .. "Button" .. i)
+			local slot = Visible(b) and ButtonSlot(b)
+			if slot then
+				slots[#slots + 1] = slot
+			end
+		end
+		if #slots > 0 and not fixed then
+			fixed = slots
+		else
+			for _, s in ipairs(slots) do
+				others[#others + 1] = s
+			end
+		end
+	end
+	return fixed or {}, others
+end
+
+-- Ce que le rangement veut, d'après les sorts que tu connais : t.pages = { { offset, label, index, keys =
+-- { [touche] = { id, name, role } } }, … } (postures apprises), t.static = { { id, name }, … } (barre fixe, dans
+-- l'ordre), t.byName (sorts de ta classe) ; nil si ta classe n'a pas de rangement.
+function Auto.LayoutTargets()
+	local layout = LAYOUTS[PlayerClass()]
+	if not layout then
+		return nil
+	end
+	local list, byName = Auto.ClassSpells()
+	local shield = ShieldOK()
+	local forms = FormSpells()
+	local rank1Of, order, all = {}, {}, {}
+	for _, s in ipairs(list) do
+		all[#all + 1] = s
+	end
+	local function Remember(id)
+		local name = SpellName(id)
+		if name and not rank1Of[name] then
+			rank1Of[name] = id
+		end
+		return name
+	end
+	-- un sort des tableaux : son plus haut rang connu (un talent actif absent du grimoire de classe compte aussi)
+	local function Known(rank1)
+		local name = Remember(rank1)
+		if not name then
+			return nil
+		end
+		if byName[name] then
+			return byName[name], name
+		end
+		if SpellKnown(rank1) then
+			byName[name] = rank1
+			all[#all + 1] = { id = rank1, name = name }
+			return rank1, name
+		end
+	end
+	for i, id in ipairs(layout.static) do
+		local name = Remember(id)
+		if name and not order[name] then
+			order[name] = i
+		end
+		Known(id)
+	end
+	for id in pairs(layout.only) do
+		Remember(id)
+	end
+	local t = { pages = {}, static = {}, byName = byName }
+	local placed = {} -- [nom] = { [posture] = true }
+	for index, st in ipairs(layout.stances) do
+		if forms[st.spell] or SpellKnown(st.spell) then
+			local page = { offset = st.offset, label = st.label, index = index, keys = {} }
+			local used = {}
+			for key, row in ipairs(layout.keys) do
+				for _, rank1 in ipairs(row[index + 1] or {}) do
+					local id, name
+					if (shield or not SHIELD_SPELLS[rank1]) and Usable(layout, rank1, index) then
+						id, name = Known(rank1)
+					end
+					if id and not used[name] then
+						used[name] = true
+						page.keys[key] = { id = id, name = name, role = row[1] }
+						placed[name] = placed[name] or {}
+						placed[name][index] = true
+						break
+					end
+				end
+			end
+			t.pages[#t.pages + 1] = page
+		end
+	end
+	-- barre fixe : un sort absent d'une page de posture où il marche
+	local rest = {}
+	for i, spell in ipairs(all) do
+		local missing = #t.pages == 0
+		for _, page in ipairs(t.pages) do
+			if not (placed[spell.name] and placed[spell.name][page.index])
+				and Usable(layout, rank1Of[spell.name], page.index) then
+				missing = true
+			end
+		end
+		if missing then
+			rest[#rest + 1] = { id = spell.id, name = spell.name, sort = order[spell.name] or (1000 + i) }
+		end
+	end
+	table.sort(rest, function(a, b)
+		return a.sort < b.sort
+	end)
+	t.static = rest
+	return t, layout
+end
+
+local function Journal(journal, op)
+	if journal then
+		journal[#journal + 1] = op
+	end
+end
+
+-- Vide une case (un sort de ta classe seulement).
+local function ClearSlot(slot, journal, before)
+	Call(rawget(_G, "PickupAction"), slot)
+	local kind = Call(GetCursorInfo)
+	Call(ClearCursor)
+	if kind then
+		Journal(journal, { op = "set", slot = slot, before = before or {} })
+	end
+	return kind ~= nil
+end
+
+local function SetSpell(slot, id, journal, before)
+	if PutSpell(id, slot) then
+		Journal(journal, { op = "set", slot = slot, before = before or {} })
+		return true
+	end
+	return false
+end
+
+-- Déplace ce qu'il y a dans `from` (objet, macro…) vers la case vide `to`. Jamais effacé : si le jeu refuse, la chose
+-- revient à sa place (ou reste sur le curseur).
+local function MoveAction(from, to, journal, c)
+	if Call(HasAction, to) then
+		return false
+	end
+	Call(rawget(_G, "PickupAction"), from)
+	if not CursorBusy() then
+		return false
+	end
+	pcall(PlaceAction, to)
+	if CursorBusy() then
+		pcall(PlaceAction, from)
+		return false
+	end
+	Journal(journal, { op = "move", from = from, to = to, kind = c and c.kind, id = c and c.id })
+	return true
+end
+
+-- Range (force : rangement complet) ou entretient les barres. Rend { placed = { texte, … }, moved, kept = { touche,
+-- … }, missing, pages } ou nil et la raison.
+function Auto.ArrangeBars(force)
+	if InCombat() then
+		Auto.pending = true
+		return nil, "en combat"
+	end
+	if CursorBusy() then
+		return nil, "il y a quelque chose sur le curseur"
+	end
+	if type(PlaceAction) ~= "function" or type(GetActionInfo) ~= "function"
+		or type(rawget(_G, "PickupAction")) ~= "function" then
+		return nil, "barres d'action illisibles"
+	end
+	local t = Auto.LayoutTargets()
+	if not t then
+		return nil, "pas de rangement par posture pour ta classe"
+	end
+	if #t.pages == 0 then
+		return nil, "aucune posture apprise"
+	end
+	local problem = PagingProblem()
+	if problem then
+		return nil, problem
+	end
+	local state = BarState()
+	local owned, locked, removed, parked = state.owned, state.locked, state.removed, state.parked
+	local byName = t.byName
+	local journal = force and {} or nil
+	local fixed, others = ExtraBars()
+	local res = { placed = {}, moved = 0, kept = {}, missing = 0, pages = t.pages }
+	UpgradeRanks(byName, res.placed)
+	local function Content(slot)
+		return SlotContent(slot, byName)
+	end
+	local want, stanceSlots, pageOf = {}, {}, {}
+	for _, page in ipairs(t.pages) do
+		for key = 1, 12 do
+			local slot = PageSlot(page.offset, key)
+			stanceSlots[#stanceSlots + 1] = slot
+			pageOf[slot] = page
+			want[slot] = page.keys[key]
+		end
+	end
+	local shown = {} -- cases affichées hors des pages de posture : la barre fixe, puis les autres barres
+	for _, s in ipairs(fixed) do
+		shown[#shown + 1] = s
+	end
+	for _, s in ipairs(others) do
+		shown[#shown + 1] = s
+	end
+	local function KeyText(slot)
+		local page = pageOf[slot]
+		return page.label .. " " .. (slot - PageSlot(page.offset, 0))
+	end
+	-- 1. ce que tu as changé depuis le dernier passage reste à toi (rangement complet : tout est remis à plat)
+	if force then
+		wipe(locked)
+		wipe(removed)
+		wipe(owned)
+		wipe(parked)
+	else
+		for slot, p in pairs(parked) do
+			local c = Content(slot)
+			if not (c and type(p) == "table" and c.kind == p.kind and c.id == p.id) then
+				parked[slot] = nil
+			end
+		end
+		local onBars = SpellsOnBars()
+		for slot, name in pairs(owned) do
+			local c = Content(slot)
+			if not (c and c.name == name) then
+				owned[slot] = nil
+				locked[slot] = true
+				if not onBars[name] then
+					removed[name] = true
+					Note("barres : « " .. name .. " » enlevé à la main, laissé de côté")
+				end
+			end
+		end
+	end
+	-- 2. rangement complet : les sorts de ta classe qui ne sont pas à leur place s'en vont (remis à la bonne ensuite)
+	if force then
+		for _, slots in ipairs({ stanceSlots, shown }) do
+			for _, slot in ipairs(slots) do
+				local c = Content(slot)
+				if c and c.class and not (want[slot] and want[slot].name == c.name) then
+					ClearSlot(slot, journal, { id = c.id })
+				end
+			end
+		end
+	end
+	local function Empty(slot)
+		return not want[slot] and not Call(HasAction, slot)
+	end
+	-- (rangement complet : les premières cases vides de la barre fixe sont gardées pour ses sorts)
+	local reserved = {}
+	if force then
+		local n = 0
+		for _, slot in ipairs(fixed) do
+			if n < #t.static and Empty(slot) then
+				reserved[slot] = true
+				n = n + 1
+			end
+		end
+	end
+	-- une case libre pour un objet ou une macro qui doit laisser sa touche : une barre affichée en plus de la
+	-- principale, sinon une touche libre de la même page (« garé » : il repartira si cette touche sert un jour)
+	local function FreeFor(page)
+		for _, s in ipairs(shown) do
+			if Empty(s) and not reserved[s] and not locked[s] then
+				return s, false
+			end
+		end
+		for key = 1, 12 do
+			local s = PageSlot(page.offset, key)
+			if Empty(s) and not locked[s] then
+				return s, true
+			end
+		end
+	end
+	-- 3. les touches de chaque posture
+	for _, slot in ipairs(stanceSlots) do
+		local w = want[slot]
+		if w and not locked[slot] then
+			local c = Content(slot)
+			if c and c.name == w.name then
+				owned[slot] = w.name
+			elseif not c or (c.class and owned[slot]) then
+				if SetSpell(slot, w.id, journal, c and c.kind == "spell" and { id = c.id } or {}) then
+					owned[slot] = w.name
+					res.placed[#res.placed + 1] = w.name .. " (" .. KeyText(slot) .. ")"
+				end
+			elseif force or (type(parked[slot]) == "table" and parked[slot].kind == c.kind and parked[slot].id == c.id) then
+				-- un objet, une macro… : vers une case libre affichée, sinon la touche reste à toi
+				local dest, onPage = FreeFor(pageOf[slot])
+				if dest and MoveAction(slot, dest, journal, c) then
+					parked[slot] = nil
+					if onPage then
+						parked[dest] = { kind = c.kind, id = c.id }
+					end
+					res.moved = res.moved + 1
+					if SetSpell(slot, w.id, journal, {}) then
+						owned[slot] = w.name
+						res.placed[#res.placed + 1] = w.name .. " (" .. KeyText(slot) .. ")"
+					end
+				elseif force then
+					res.kept[#res.kept + 1] = KeyText(slot)
+				end
+			end
+		end
+	end
+	-- 4. la barre fixe
+	local staticSet = {}
+	for _, s in ipairs(t.static) do
+		staticSet[s.name] = true
+	end
+	if not force then
+		-- un sort que nous y avions mis et qui a maintenant sa touche dans toutes ses postures : retiré
+		for _, slot in ipairs(shown) do
+			local c = owned[slot] and Content(slot)
+			if c and c.class and c.name == owned[slot] and not staticSet[c.name] then
+				ClearSlot(slot)
+				owned[slot] = nil
+			end
+		end
+	end
+	local present = {}
+	for _, slot in ipairs(shown) do
+		local c = Content(slot)
+		if c and c.name then
+			present[c.name] = true
+		end
+	end
+	for _, s in ipairs(t.static) do
+		if not present[s.name] and not removed[s.name] then
+			local dest
+			for _, slot in ipairs(shown) do
+				if Empty(slot) and not locked[slot] then
+					dest = slot
+					break
+				end
+			end
+			if not dest then
+				res.missing = res.missing + 1
+			elseif SetSpell(dest, s.id, journal, {}) then
+				owned[dest] = s.name
+				present[s.name] = true
+				res.placed[#res.placed + 1] = s.name .. " (barre du dessus)"
+			end
+		end
+	end
+	if journal and #journal > 0 then
+		state.journal = { at = date("%Y-%m-%d %H:%M"), ops = journal }
+	end
+	return res
+end
+
+local function ReportArranged(res, force)
+	if force then
+		local labels = {}
+		for _, p in ipairs(res.pages) do
+			labels[#labels + 1] = p.label
+		end
+		ns.Print(string.format("barres rangées par posture (%s) : %d sort(s) posé(s)%s. /iti barres pour voir chaque "
+			.. "touche, /iti barres annuler pour revenir.", table.concat(labels, ", "), #res.placed,
+			res.moved > 0 and (", " .. res.moved .. " objet(s) ou macro(s) déplacé(s) vers une case libre") or ""))
+	elseif #res.placed > 0 then
+		ns.Print("barres d'action : " .. table.concat(res.placed, ", ")
+			.. (res.moved > 0 and (" (" .. res.moved .. " objet(s) ou macro(s) déplacé(s) pour leur faire place)") or "") .. ".")
+	end
+	if #res.placed > 0 then
+		Note("barres : " .. table.concat(res.placed, ", "))
+	end
+	if #res.kept > 0 then
+		ns.Print("barres : touche(s) laissée(s) à tes objets ou macros, faute de case libre : "
+			.. table.concat(res.kept, ", ") .. ".")
+	end
+	if res.missing > 0 and (force or not fullWarned) then
+		fullWarned = true
+		ns.Print("barres : plus de case libre pour " .. res.missing .. " sort(s) : affiche une barre de plus (Échap > "
+			.. "Options > Barres d'action) puis /iti barres ranger.")
+	end
+end
+
+-- Annule le dernier rangement complet (et arrête l'entretien). Rend true et le nombre de cases pas remises, ou nil
+-- et la raison.
+function Auto.UndoBars()
+	local state = BarState()
+	local j = state.journal
+	if type(j) ~= "table" or type(j.ops) ~= "table" or #j.ops == 0 then
+		return nil, "rien à annuler"
+	end
+	if InCombat() then
+		return nil, "en combat"
+	end
+	if CursorBusy() then
+		return nil, "il y a quelque chose sur le curseur"
+	end
+	local _, byName = Auto.ClassSpells()
+	local fails = 0
+	for i = #j.ops, 1, -1 do
+		local op = j.ops[i]
+		if type(op) == "table" and op.op == "set" and Num(op.slot) then
+			local c = SlotContent(op.slot, byName)
+			local before = type(op.before) == "table" and Num(op.before.id) or nil
+			if c and not c.class then
+				fails = fails + 1 -- un objet ou une macro posé depuis : on n'y touche pas
+			elseif before then
+				if not (c and c.id == before) and not PutSpell(before, op.slot) then
+					fails = fails + 1
+				end
+			elseif c then
+				ClearSlot(op.slot)
+			end
+		elseif type(op) == "table" and op.op == "move" and Num(op.from) and Num(op.to) then
+			local c = SlotContent(op.to, byName)
+			if not (c and c.kind == op.kind and c.id == op.id and not Call(HasAction, op.from)
+				and MoveAction(op.to, op.from, nil, c)) then
+				fails = fails + 1
+			end
+		end
+	end
+	state.journal = nil
+	state.layout = "non"
+	wipe(state.owned)
+	wipe(state.locked)
+	wipe(state.parked)
+	return true, fails
+end
+
+-- /iti barres : chaque touche de chaque posture, et la barre fixe.
+function Auto.LayoutLines()
+	local t, layout = Auto.LayoutTargets()
+	if not t then
+		return { "barres : pas de rangement par posture pour ta classe (le pilote remplit seulement les cases vides)." }
+	end
+	local state = BarState()
+	local status = state.layout == layout.version and "rangées, entretenues par le pilote"
+		or state.layout == "non" and "pas rangées (/iti barres ranger pour le faire)"
+		or "pas encore rangées (/iti barres ranger)"
+	local lines = { "barres par posture : " .. status .. (type(state.journal) == "table"
+		and (" · /iti barres annuler revient à l'état du " .. tostring(state.journal.at)) or "") }
+	for _, page in ipairs(t.pages) do
+		local parts = {}
+		for key = 1, 12 do
+			local w = page.keys[key]
+			parts[#parts + 1] = key .. " " .. (w and w.name or "-")
+		end
+		lines[#lines + 1] = page.label .. " : " .. table.concat(parts, " · ")
+	end
+	local names = {}
+	for _, s in ipairs(t.static) do
+		names[#names + 1] = s.name
+	end
+	lines[#lines + 1] = "barre du dessus (toutes postures) : " .. (#names > 0 and table.concat(names, ", ") or "-")
+	return lines
+end
+
+-- /iti barres [ranger | annuler | non]
+function Auto.BarsCommand(arg)
+	local layout = LAYOUTS[PlayerClass()]
+	local state = BarState()
+	if not layout then
+		ns.Print(Auto.LayoutLines()[1])
+		return
+	end
+	if arg == "ranger" or arg == "range" then
+		if ns.Pilote.Blocked and ns.Pilote.Blocked("actionbars") then
+			ns.Print("barres : le jeu a bloqué cette partie du pilote pour la session (/iti rapport).")
+			return
+		end
+		local res, why = Auto.ArrangeBars(true)
+		if not res then
+			state.layoutError = why
+			ns.Print("barres : rien rangé (" .. tostring(why) .. ").")
+			return
+		end
+		state.layout = layout.version
+		state.layoutError = nil
+		ReportArranged(res, true)
+		if not Allowed("actionbars") then
+			ns.Print("barres : l'entretien (nouveaux sorts à leur touche) se fera quand le pilote et sa case « barres "
+				.. "d'action » seront allumés (/iti reglages > Pilote).")
+		end
+	elseif arg == "annuler" or arg == "undo" then
+		local ok, fails = Auto.UndoBars()
+		if not ok then
+			ns.Print("barres : " .. tostring(fails) .. ".")
+		else
+			ns.Print("barres : rangement annulé" .. (fails > 0 and (" (" .. fails .. " case(s) changée(s) depuis, laissée(s) "
+				.. "telle(s) quelle(s))") or "") .. ". Plus d'entretien par posture (/iti barres ranger pour le refaire).")
+		end
+	elseif arg == "non" or arg == "stop" then
+		state.layout = "non"
+		ns.Print("barres : plus d'entretien par posture (/iti barres ranger pour le refaire).")
+	else
+		for _, line in ipairs(Auto.LayoutLines()) do
+			ns.Print(line)
+		end
+		ns.Print("/iti barres ranger · /iti barres annuler · /iti barres non")
+	end
+end
+
+local layoutAsked
+local function AskLayout(layout)
+	if layoutAsked or Auto.Asking("barres") then
+		return
+	end
+	layoutAsked = true
+	Auto.Ask("barres", layout.ask, {
+		{ label = "Ranger", func = function()
+			Auto.BarsCommand("ranger")
+		end },
+		{ label = "Plus tard" },
+		{ label = "Jamais", func = function()
+			BarState().layout = "non"
+			ns.Print("barres : pas de rangement par posture (/iti barres ranger quand tu veux).")
+		end },
+	})
+end
 
 function Auto.CheckActionBars()
 	if not Allowed("actionbars") or InCombat() then
@@ -1766,11 +2459,23 @@ function Auto.CheckActionBars()
 	if CursorBusy() or type(PlaceAction) ~= "function" or type(GetActionInfo) ~= "function" then
 		return
 	end
+	local layout = LAYOUTS[PlayerClass()]
+	local state = BarState()
+	-- barres rangées par posture : entretien
+	if layout and state.layout == layout.version then
+		local res, why = Auto.ArrangeBars(false)
+		if res then
+			ReportArranged(res, false)
+		elseif why and why ~= state.layoutError then
+			state.layoutError = why
+			Note("barres : " .. why)
+		end
+		return
+	end
 	local list, byName = Auto.ClassSpells()
 	if #list == 0 then
 		return
 	end
-	local state = BarState()
 	local onBars = SpellsOnBars()
 	-- un sort que nous avions posé et qui n'est plus sur les barres : tu l'as enlevé, il n'y revient plus
 	for name in pairs(state.placed) do
@@ -1781,17 +2486,9 @@ function Auto.CheckActionBars()
 		end
 	end
 	local done = {}
-	-- 1. rangs supérieurs, à la même place
-	for name, bar in pairs(onBars) do
-		local best = byName[name]
-		if best and best ~= bar.id then
-			local highest = C_ActionBar and C_ActionBar.IsHighestSpellRank
-			local outdated = highest and Call(highest, bar.id) == false or (not highest and RankOf(best) > RankOf(bar.id))
-			if outdated and PutSpell(best, bar.slot) then
-				done[#done + 1] = name .. " (rang supérieur)"
-			end
-		end
-	end
+	-- 1. rangs supérieurs, à la même place (partout)
+	UpgradeRanks(byName, done)
+	onBars = SpellsOnBars()
 	-- 2. sorts qui manquent, dans les cases vides
 	local free = Auto.FreeActionSlots()
 	local missing = 0
@@ -1813,6 +2510,10 @@ function Auto.CheckActionBars()
 	if missing > 0 and not fullWarned then
 		fullWarned = true
 		ns.Print("barres d'action : plus de case vide pour " .. missing .. " sort(s) (affiche une barre de plus : Échap > Options > Barres d'action).")
+	end
+	-- ta classe a un rangement par posture : proposé une fois
+	if layout and state.layout == nil then
+		AskLayout(layout)
 	end
 end
 
@@ -1921,6 +2622,28 @@ function Auto.TalentsText()
 		nextT and ("prochain : " .. tostring(nextT.name) .. " " .. nextT.rank .. "/" .. nextT.max) or tostring(why))
 end
 
+-- État du rangement par posture, pour /iti rapport.
+local function BarsReport()
+	local layout = LAYOUTS[PlayerClass()]
+	if not layout then
+		return ""
+	end
+	local state = BarState()
+	local n = 0
+	for _ in pairs(state.owned) do
+		n = n + 1
+	end
+	local locked = 0
+	for _ in pairs(state.locked) do
+		locked = locked + 1
+	end
+	local ok, problem = pcall(PagingProblem)
+	return " (par posture : " .. tostring(state.layout or "pas demandé") .. ", " .. n .. " cases à nous, " .. locked
+		.. " à toi" .. (state.layoutError and (", dernier refus : " .. tostring(state.layoutError)) or "")
+		.. (ok and problem and problem ~= state.layoutError and (", " .. problem) or "") .. ", barre " .. tostring(Num(Call(rawget(_G, "GetBonusBarOffset"))))
+		.. ")"
+end
+
 function Auto.ReportLine()
 	local cfg = Cfg()
 	local trees = Auto.Trees()
@@ -1936,6 +2659,6 @@ function Auto.ReportLine()
 		.. (#skipped > 0 and (" · pas sautés " .. table.concat(skipped, ",")) or "")
 		.. " · équipement auto " .. (cfg.equip ~= false and "oui" or "non") .. " (lié quand équipé : " .. tostring(cfg.equipBoE) .. ")"
 		.. " · sacs " .. (cfg.bags ~= false and "oui" or "non")
-		.. " · barres d'action " .. (cfg.actionbars ~= false and "oui" or "non")
+		.. " · barres d'action " .. (cfg.actionbars ~= false and "oui" or "non") .. BarsReport()
 		.. (#Auto.log > 0 and ("\n  dernières actions : " .. table.concat(Auto.log, " | ")) or "")
 end

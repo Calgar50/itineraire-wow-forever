@@ -22,7 +22,8 @@ tables change, voir `outils/donnees.py` : commits épinglés, empreintes SHA-256
 - Itinéraire lit aussi en jeu, sans rien copier, les addons **Questie** / **QuestieDB** (GPL v3) et
   **Shortest Path Forever** quand ils sont installés.
 - Les **plans de talents** (`Autonomie.lua`) sont écrits pour Itinéraire ; les arbres de talents de Forever (noms,
-  sorts, paliers, rangs) viennent de ForeverDB (https://foreverdb.net), extraits du client du jeu.
+  sorts, paliers, rangs) viennent de ForeverDB (https://foreverdb.net), extraits du client du jeu ; de même pour
+  les postures exigées par les techniques de guerrier (rangement des barres par posture, `outils/postures.py`).
 - **DungeonJournal** (ExehnTV, https://www.curseforge.com/wow/addons/dungeonjournal), tous droits réservés à son
   auteur : quand il est installé, `DungeonJournal.lua` lit ses données en jeu (donjons, boss, butins, quêtes de
   donjon et leurs lieux) et ouvre ses pages. Aucune donnée ni aucun code de DungeonJournal n'est copié dans

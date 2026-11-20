@@ -315,3 +315,26 @@ Notes techniques de chaque version (la plus récente en bas). Pour l'usage, voir
   - Tests : `auto_bars_test.lua` (rang supérieur, cases vides de la barre affichée, posture, passif, sort futur,
     sort enlevé, combat, barre principale hors posture, blocage) ; `auto_test.lua` vérifie un plan par rôle pour
     chaque classe (28 plans de 51 points). 25 tests.
+- v2.6.0 (20/11/2026) : barres rangées par posture (guerrier), bouton DungeonJournal, valeurs secrètes.
+  - `Autonomie.lua`, table `LAYOUTS.WARRIOR` : 3 postures (sort, page `GetBonusBarOffset`), `only` = postures exigées
+    (ForeverDB build 70959 ; un nombre = talent qui ajoute la posture : Charge en Défensive avec Avant-garde 1310317),
+    `keys` = 12 touches × 3 postures, chaque case = liste de sorts de rang 1 (le premier connu, permis dans la posture,
+    pas déjà sur la page ; sorts de bouclier seulement si bouclier porté ou rôle tank), `static` = ordre de la barre
+    fixe (la première barre affichée en plus de la principale) pour les sorts absents d'une page où ils marchent.
+    Case d'une touche : `(NUM_ACTIONBAR_PAGES + page - 1) * 12 + touche` (Combat 73-84, Défensive 85-96, Berserker
+    97-108) ; refus si `ActionButton1.action` ne correspond pas (`PagingProblem`, dans le rapport).
+  - `Auto.ArrangeBars(force)` : rangement complet (sorts de classe hors de place retirés, objets/macros/compagnons des
+    touches voulues déplacés par `PickupAction` + `PlaceAction` vers une case vide affichée, sinon « garés » sur une
+    touche libre de la page (`parked`), sinon la touche leur reste ; journal `actionbars.journal` rejoué à l'envers par
+    `Auto.UndoBars`) ou entretien (cases à nous `owned` ; une case changée par le joueur devient `locked`, un sort
+    enlevé de partout `removed` ; un sort d'attente à nous est remplacé ; un objet garé repart quand sa touche sert).
+    Rangs supérieurs partout (`UpgradeRanks`, toutes les cases 1-180). Question unique (Ranger / Plus tard / Jamais),
+    `/iti barres [ranger|annuler|non]`, bouton dans /iti reglages > Pilote, état dans `/iti rapport`.
+    `outils/postures.py` revérifie `only` contre ForeverDB (39 sorts, 0 erreur).
+  - Bouton « Journal des donjons » (barre de titre, clic droit = donjons du niveau) et raccourci `ITINERAIRE_DJ` :
+    `DJ.CurrentKey` (instance via `GetInstanceInfo`, sinon 1re étape de donjon du trajet) ; `DJ.Find` cherche aussi
+    dans l'autre sens (nom Questie plus long que celui de DungeonJournal) ; `/iti dj` sans nom fait pareil.
+  - Corrigé : `Num` (Autonomie, Gear, Pilote, Data) refuse les valeurs « secrètes » de Forever (`issecretvalue` /
+    `canaccessvalue`) : `UnitArmor` secret faisait planter `ArmorStamina` (Gear.lua:277, vu dans une vraie sauvegarde).
+  - Tests : `auto_layout_test.lua` (rangement, objets déplacés, annulation exacte, Avant-garde, sort d'attente
+    remplacé, case du joueur gardée, rangs, combat, refus de page) ; `dj_test.lua` (bouton, raccourci, menu). 26 tests.

@@ -265,6 +265,35 @@ assert(CALLS[#CALLS] == "quest:Ragefire Chasm:95001", "page de quête : " .. tos
 -- 8. /iti dj, rapport.
 SlashCmdList.ITINERAIRE("dj gouffre")
 assert(CALLS[#CALLS] == "boss:Ragefire Chasm:nil", "/iti dj gouffre : " .. tostring(CALLS[#CALLS]))
+
+-- 8 bis. Bouton « Journal des donjons » (barre de titre) et raccourci : le donjon où l'on est, sinon celui du trajet,
+--        sinon l'accueil ; clic droit = les donjons du niveau (pas les pages de chaîne de quêtes).
+local jbtn
+for _, f in ipairs(FRAMES) do if rawget(f, "skinKey") == "journal" then jbtn = f end end
+assert(jbtn, "pas de bouton Journal des donjons dans la barre de titre")
+INSTANCE = true
+function GetInstanceInfo() return "Gouffre de Ragefeu", "party" end
+local n = #CALLS
+jbtn.scripts.OnClick(jbtn, "LeftButton")
+assert(CALLS[#CALLS] == "boss:Ragefire Chasm:nil", "bouton dans le donjon : " .. tostring(CALLS[#CALLS]))
+INSTANCE = false
+local savedPlan = ns.plan
+ns.plan = { order = { { tasks = { { kind = "kill" } } }, { tasks = { { kind = "dungeon", areaId = 2437 } } } } }
+Itineraire_DungeonJournal()
+assert(CALLS[#CALLS] == "boss:Ragefire Chasm:nil" and #CALLS == n + 2, "raccourci : donjon du trajet")
+ns.plan = { order = {} }
+Itineraire_DungeonJournal()
+assert(#CALLS == n + 2, "sans donjon : accueil du journal seulement (aucune page)")
+ns.plan = savedPlan
+jbtn.scripts.OnClick(jbtn, "RightButton")
+local menuText = {}
+for _, item in ipairs(MENU) do menuText[#menuText + 1] = item.text end
+menuText = table.concat(menuText, " | ")
+assert(menuText:find("Gouffre de Ragefeu %(13%-18%)") and menuText:find("Test Hollow") and not menuText:find("Onyxia"),
+	"menu des donjons : " .. menuText)
+print("menu : " .. menuText)
+assert(ns.DJ.Find("Les Gouffre de Ragefeu (héroïque)") == "Ragefire Chasm", "recherche dans l'autre sens")
+
 local report = ns.ReportText()
 assert(report:find("DungeonJournal 2.1.0 : lu %(2 donjons, 6 quêtes"), "rapport : " .. report:match("DungeonJournal[^\n]*"))
 print(report:match("DungeonJournal[^\n]*"))

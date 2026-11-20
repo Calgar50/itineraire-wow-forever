@@ -32,7 +32,9 @@ Il ne suit pas un guide figé : le trajet se recalcule à chaque quête prise, r
   - équipement : butins de ses donjons et **récompenses des quêtes de donjon**, avec où prendre la quête ;
   - donjon ajouté au trajet : **ses quêtes à prendre avant d'y aller** sont ajoutées aussi ;
   - quêtes de donjon que Questie ne connaît pas : lieu du rendu, entrée du donjon pour les objectifs ;
-  - clic droit dans la fenêtre Équipement, ou `/iti dj [donjon]` : ouvre la page dans DungeonJournal.
+  - bouton **livre** de la fenêtre d'Itinéraire (ou un raccourci clavier, Échap > Raccourcis > Itinéraire) : ouvre
+    DungeonJournal sur le donjon où tu es, sinon sur le prochain donjon de ton trajet ; clic droit : les donjons de
+    ton niveau. Aussi : clic droit dans la fenêtre Équipement, ou `/iti dj [donjon]`.
 
   Rien de DungeonJournal n'est copié dans Itinéraire.
 
@@ -54,8 +56,14 @@ Il ne suit pas un guide figé : le trajet se recalcule à chaque quête prise, r
     effet « Utiliser » n'est pas remplacé ;
   - de tes **sacs** : un sac de tes sacs va dans un emplacement de sac libre ;
   - de tes **barres d'action** : les sorts de ta classe qui n'y sont pas vont dans les cases vides des barres
-    affichées, et un sort passe à son rang supérieur dès que tu l'apprends, à la même place. Rien n'est déplacé ni
-    retiré ; un sort que tu enlèves n'y revient plus.
+    affichées, et un sort passe à son rang supérieur dès que tu l'apprends, à la même place ; un sort que tu enlèves
+    n'y revient plus. **Guerrier : barres rangées par posture** (proposé une fois, ou `/iti barres ranger`) : la barre
+    principale change avec la posture, et chaque touche y garde le même rôle (1 Charge / Interception, 2 Frappe
+    héroïque, 3 Fulgurance / Vengeance / Tourbillon, 4 grosse frappe, 5 Fracasser l'armure, 6 Coup de tonnerre, 8
+    interrompre, 9 provoquer, 12 survie…) ; les cris et autres sorts vont sur la barre du dessus. Postures exigées :
+    celles de Forever (Coup de tonnerre aussi en Défensive, Charge en Défensive avec Avant-garde). Tes objets et
+    macros sont déplacés vers une case libre, jamais effacés ; `/iti barres annuler` remet tout comme avant. Ensuite
+    un nouveau sort va à sa touche, et une case que tu changes reste à toi.
 - **Les quêtes que Questie ne sait pas placer** : Itinéraire prend le repère que le jeu dessine sur la carte (et
   DonData s'il est installé), au lieu de les laisser de côté.
 - **À plusieurs** (2 à 5 joueurs, désactivé par défaut) : le chef de groupe calcule un seul trajet avec les
@@ -113,7 +121,8 @@ suffit pour qu'elle le laisse tranquille).
 | `/iti pilote` | pilote automatique : marche / arrêt |
 | `/iti talents` | plan de talents suivi et prochain point (et la question, s'il y a un point à mettre) |
 | `/iti equipement` | la fenêtre Équipement |
-| `/iti dj [donjon]` | ouvrir DungeonJournal (sur un donjon) |
+| `/iti barres [ranger \| annuler \| non]` | barres par posture (guerrier) : voir chaque touche, ranger, revenir |
+| `/iti dj [donjon]` | ouvrir DungeonJournal (le donjon où tu es ou celui du trajet ; ou celui nommé) |
 | `/iti reglages` | tous les réglages (Trajet, Fenêtre, Équipement, Pilote, Questie & flèche) |
 | `/iti assistant` | les 5 questions du début |
 | `/iti rendus` | route des rendus (seulement les quêtes terminées) |

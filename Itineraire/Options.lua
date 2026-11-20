@@ -749,13 +749,21 @@ local function BuildPilotPage(page)
 		ns.Auto.Soon(0.3)
 	end, 230, -548)
 	CheckFn(page, "Remplir les barres d'action (sorts qui manquent, rangs supérieurs)",
-		"Les sorts de ta classe qui ne sont sur aucune barre vont dans les cases vides des barres affichées ; un sort passe à son rang supérieur dès que tu l'apprends, à la même place. Rien n'est déplacé ni retiré ; un sort que tu enlèves n'y revient plus. Hors combat seulement.",
+		"Les sorts de ta classe qui ne sont sur aucune barre vont dans les cases vides des barres affichées ; un sort passe à son rang supérieur dès que tu l'apprends, à la même place. Un sort que tu enlèves n'y revient plus. Guerrier : bouton « Ranger mes barres par posture » (même rôle sur la même touche dans chaque posture, puis entretien ; /iti barres annuler pour revenir). Hors combat seulement.",
 		function()
 			return cfg().actionbars ~= false
 		end, function(v)
 			cfg().actionbars = v
 			ns.Auto.Soon(0.3)
 		end, 230, -572)
+	-- Guerrier : rangement par posture (même rôle sur la même touche dans chaque posture)
+	local okClass, _, classToken = pcall(UnitClass, "player")
+	if okClass and type(ns.Auto.LAYOUTS) == "table" and ns.Auto.LAYOUTS[classToken or ""] then
+		local arrange = Button(page, "Ranger mes barres par posture", 220, function()
+			ns.Auto.BarsCommand("ranger")
+		end)
+		arrange:SetPoint("TOPLEFT", 230, -604)
+	end
 end
 
 local PAGES = {
@@ -777,7 +785,7 @@ end
 
 local function Build()
 	panel = CreateFrame("Frame", "ItineraireOptions", UIParent, "BackdropTemplate")
-	panel:SetSize(480, 720)
+	panel:SetSize(480, 752)
 	panel:SetPoint("CENTER")
 	panel:SetFrameStrata("DIALOG")
 	panel:SetClampedToScreen(true)

@@ -949,6 +949,8 @@ local HEADER_BUTTONS = {
 		tip = "Un trajet qui ne fait que rendre tes quêtes terminées. Re-clic : retour au trajet complet." },
 	{ key = "gear", icon = "Interface\\Icons\\INV_Shield_04", title = "Équipement",
 		tip = "Tes améliorations (récompenses, vendeurs, butins de donjon, métiers), « Quel donjon faire ? » et « Y aller »." },
+	{ key = "journal", icon = "Interface\\Icons\\INV_Misc_Book_09", title = "Journal des donjons", rightClick = true,
+		tip = "Ouvre DungeonJournal (d'ExehnTV) sur le donjon où tu es, sinon sur le prochain donjon de ton trajet. Clic droit : choisir un donjon de ton niveau." },
 	{ key = "pilote", icon = "Interface\\Icons\\Ability_Hunter_Pathfinding", title = "Pilote automatique",
 		tip = "Bordure verte = actif : il prend et rend les quêtes, prend le vol prévu, passe les cinématiques, répare et vend les objets gris, apprend tes techniques. MAJ en parlant à un PNJ : tu reprends la main. Clic : marche / arrêt." },
 }
@@ -1009,6 +1011,13 @@ function UI.Create()
 		gear = function()
 			ns.GearUI.Toggle()
 		end,
+		journal = function(_, mouse)
+			if ns.djMissing then
+				ns.Print("DungeonJournal arrive avec un nouveau fichier d'Itinéraire : quitte et relance complètement WoW.")
+				return
+			end
+			ns.DJ.Button(mouse == "RightButton")
+		end,
 		pilote = function()
 			if ns.piloteMissing then
 				ns.Print("le pilote arrive avec un nouveau fichier : quitte et relance complètement WoW.")
@@ -1020,6 +1029,9 @@ function UI.Create()
 	local prev = close
 	for _, def in ipairs(HEADER_BUTTONS) do
 		local b = SmallButton(def, actions[def.key])
+		if def.rightClick then
+			b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+		end
 		b:SetPoint("RIGHT", prev, "LEFT", prev == close and -2 or -4, 0)
 		buttons[def.key] = b
 		prev = b

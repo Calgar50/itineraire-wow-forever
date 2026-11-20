@@ -39,10 +39,17 @@ local function Call(fn, ...)
 end
 
 local function Num(v)
-	local ok, n = pcall(function()
-		return type(v) == "number" and v or nil
+	if type(v) ~= "number" then
+		return nil
+	end
+	-- Forever : une valeur « secrète » (combat, instance) a le type number mais refuse tout calcul
+	local ok, secret = pcall(function()
+		return (issecretvalue and issecretvalue(v)) or (canaccessvalue and not canaccessvalue(v)) or false
 	end)
-	return ok and n or nil
+	if not ok or secret then
+		return nil
+	end
+	return v
 end
 
 -- Vrai seulement pour un vrai « true » lisible (une valeur secrète de Forever compte pour « non »).
@@ -81,6 +88,11 @@ local function Active(key, ignoreShift)
 	return true
 end
 Pilote.Active = Active
+
+-- Le jeu a-t-il bloqué cette partie du pilote (cette session) ?
+function Pilote.Blocked(key)
+	return blocked[key] ~= nil
+end
 
 local function Note(text)
 	local log = Pilote.log
@@ -801,6 +813,7 @@ local FUNC_KEY = {
 	AcceptQuest = "accept", CompleteQuest = "turnin", GetQuestReward = "turnin", SelectOption = "gossip",
 	LearnTalent = "talents", EquipItemByName = "equip", EquipCursorItem = "equip", EquipPendingItem = "equip",
 	PickupContainerItem = "bags", PutItemInBag = "bags", PlaceAction = "actionbars", PickupSpell = "actionbars",
+	PickupAction = "actionbars",
 }
 
 local function OnBlocked(addon, func)
