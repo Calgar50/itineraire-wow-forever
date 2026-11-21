@@ -37,8 +37,8 @@ ACTIONS[73], ACTIONS[74] = A("spell", 1082), A("spell", 8921) -- Éclat lunaire 
 ACTIONS[97] = A("macro", 3)
 local ns = Start()
 
-Answer("Ranger")
-assert(Printed("barres rangées par forme %(Humanoïde, Félin, Ours%)"), "message de rangement")
+assert(not (ItineraireQuestion and ItineraireQuestion:IsShown()), "question posée : le rangement doit être automatique")
+assert(Printed("barres rangées automatiquement par forme %(Humanoïde, Félin, Ours%)"), "message de rangement")
 assert(CURSOR == nil, "curseur pas vidé")
 ExpectPage(0, { 5176, 2912, 8921, 16914, 339, 770, 5185, 774, 8936, nil, nil, 29166 }, "humanoïde")
 ExpectPage(72, { 1082, 5221, 1822, 1328618, 1079, 770, 1238122, 9005, 6785, 8998, 1850, 5215 }, "félin")

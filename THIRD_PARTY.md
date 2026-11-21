@@ -25,6 +25,8 @@ tables change, voir `outils/donnees.py` : commits épinglés, empreintes SHA-256
   sorts, paliers, rangs) viennent de ForeverDB (https://foreverdb.net), extraits du client du jeu ; de même pour
   les postures, formes et camouflage exigés par les techniques de guerrier, druide et voleur (rangement des barres,
   `outils/postures.py`).
+- **Niveaux des zones** (`Data.lua`, trajet selon ton niveau) : plages publiées par warcraft.wiki (« Zones by level
+  (original) »), telles que **Shortest Path Forever** les reprend (`Data/Zones.lua`, GPL v3).
 - **DungeonJournal** (ExehnTV, https://www.curseforge.com/wow/addons/dungeonjournal), tous droits réservés à son
   auteur : quand il est installé, `Itineraire/DungeonJournal.lua` lit ses données en jeu (table
   `ForeverDungeonJournal_NS` : donjons, boss, butins, quêtes de donjon et leurs lieux) et ouvre ses pages.

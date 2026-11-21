@@ -10,7 +10,9 @@ Il ne suit pas un guide figé : le trajet se recalcule à chaque quête prise, r
 ## Ce qu'il fait
 
 - **Le trajet** : toutes les quêtes du journal, sans en écarter aucune (une quête trop dure passe en fin de
-  trajet, ou juste après le moment où tu auras le niveau). Option « finir la région d'abord », avec les quêtes
+  trajet, ou juste après le moment où tu auras le niveau). **Selon ton niveau** : rien n'est proposé dans une zone
+  dont le plus bas niveau est 4 au-dessus du tien (quête à prendre, marchand, maître, auberge), et une quête du
+  journal qui ne se fait ou ne se rend que là passe en fin de trajet, avec la raison. Option « finir la région d'abord », avec les quêtes
   à prendre de la région. Quêtes proposées sur le trajet et suites de quêtes (jamais celles d'une autre classe
   ou d'une autre race). Donjons, réparer / vendre, maître de classe, pierre de foyer.
 - **Le bandeau** au-dessus de la flèche : l'étape en cours, le temps restant, l'étape d'après.
@@ -57,7 +59,7 @@ Il ne suit pas un guide figé : le trajet se recalcule à chaque quête prise, r
   - de tes **sacs** : un sac de tes sacs va dans un emplacement de sac libre ;
   - de tes **barres d'action** : les sorts de ta classe qui n'y sont pas vont dans les cases vides des barres
     affichées, et un sort passe à son rang supérieur dès que tu l'apprends, à la même place ; un sort que tu enlèves
-    n'y revient plus. **Guerrier : barres rangées par posture** (proposé une fois, ou `/iti barres ranger`) : la barre
+    n'y revient plus. **Guerrier : barres rangées par posture** (tout seul, puis entretenu ; `/iti barres non` pour ne plus ranger) : la barre
     principale change avec la posture, et chaque touche y garde le même rôle (1 Charge / Interception, 2 Frappe
     héroïque, 3 Fulgurance / Vengeance / Tourbillon, 4 grosse frappe, 5 Fracasser l'armure, 6 Coup de tonnerre, 8
     interrompre, 9 provoquer, 12 survie…) ; les cris et autres sorts vont sur la barre du dessus. Postures exigées :
@@ -90,8 +92,9 @@ exemple).
 ### Mise à jour automatique
 
 Une tâche planifiée de Windows, à ton nom et sans droits d'administrateur, relance l'installateur
-(`-Auto`) à l'ouverture de session puis toutes les 4 heures, **seulement quand l'ordinateur est inutilisé
-depuis 10 minutes et que WoW est fermé**. Les nouvelles versions comptent au lancement suivant du jeu.
+(`-Auto`) 2 minutes après l'ouverture de session puis toutes les 4 heures, **sans aucune fenêtre** (`conhost
+--headless`) **et jamais quand WoW est ouvert** (installateur 5 ; le 4 attendait 10 minutes d'ordinateur inutilisé
+et ne passait presque jamais). Les nouvelles versions comptent au lancement suivant du jeu.
 DungeonJournal, qui sort presque tous les jours, est mis à jour par la même tâche (s'il est installé : le supprimer
 suffit pour qu'elle le laisse tranquille).
 

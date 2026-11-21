@@ -29,36 +29,61 @@ NAMES = {
 	[12328] = "Souhait mortel", [1329555] = "Coups téméraires", [1310185] = "Maîtrise tactique",
 }
 RANKS = { [78] = "Rang 1", [284] = "Rang 2", [7386] = "Rang 1", [7405] = "Rang 2" }
+-- Grimoire de Forever (comme Classic) : un onglet par arbre de talents après « Général », pas d'onglet « Guerrier ».
+TABS = {
+	{ name = "Général", items = { { spellID = 6603 } } },
+	{ name = "Armes", items = {} },
+	{ name = "Fureur", items = {} },
+	{ name = "Protection", items = {} },
+}
+local TAB_OF = { [78] = 2, [284] = 2, [100] = 2, [772] = 2, [6343] = 2, [1715] = 2, [7384] = 2, [694] = 2, [20230] = 2,
+	[1240193] = 2, [2457] = 2, [2687] = 3, [1160] = 3, [845] = 3, [5246] = 3, [5308] = 3, [6673] = 3, [402927] = 3,
+	[7386] = 4, [7405] = 4, [355] = 4, [72] = 4, [6572] = 4, [2565] = 4, [676] = 4, [12975] = 4, [71] = 4, [871] = 4,
+	[1310185] = 4, [23922] = 4, [1310317] = 4 }
 local CLASS = { 78, 284, 100, 772, 6343, 1715, 2687, 7386, 355, 7384, 72, 1160, 6572, 694, 2565, 676, 845, 20230,
 	1240193, 402927, 5246, 5308, 6673, 12975, 2457, 71 }
 KNOWN = {}
-BOOK = { { spellID = 6603, itemType = 1 } } -- onglet Général
+local function Add(id, extra)
+	local e = { spellID = id, itemType = 1 }
+	for k, v in pairs(extra or {}) do e[k] = v end
+	local items = TABS[TAB_OF[id] or 2].items
+	items[#items + 1] = e
+	return e
+end
 for _, id in ipairs(CLASS) do
-	BOOK[#BOOK + 1] = { spellID = id, itemType = 1 }
+	Add(id)
 	KNOWN[id] = true
 end
-BOOK[#BOOK + 1] = { spellID = 1310185, itemType = 1, isPassive = true }
-BOOK[#BOOK + 1] = { spellID = 871, itemType = 2 } -- Mur protecteur : pas encore appris
+Add(1310185, { isPassive = true })
+Add(871, { itemType = 2 }) -- Mur protecteur : pas encore appris
 local function Learn(id)
 	KNOWN[id] = true
-	for _, e in ipairs(BOOK) do
-		if e.spellID == id then
-			e.itemType = 1
-			return
+	for _, tab in ipairs(TABS) do
+		for _, e in ipairs(tab.items) do
+			if e.spellID == id then
+				e.itemType = 1
+				return
+			end
 		end
 	end
-	BOOK[#BOOK + 1] = { spellID = id, itemType = 1 }
+	Add(id)
 end
-function IsPlayerSpell(id) return KNOWN[id] == true end
+-- Forever : un rang dépassé n'est plus « connu » pour IsPlayerSpell (seul le plus haut l'est)
+function IsPlayerSpell(id) return KNOWN[id] == true and not LOW[id] end
 Enum = { SpellBookSpellBank = { Player = 0 }, SpellBookItemType = { Spell = 1, FutureSpell = 2 } }
+local function Flat()
+	local list, lines = {}, {}
+	for i, tab in ipairs(TABS) do
+		lines[i] = { name = tab.name, itemIndexOffset = #list, numSpellBookItems = #tab.items }
+		for _, e in ipairs(tab.items) do list[#list + 1] = e end
+	end
+	return list, lines
+end
 C_SpellBook = {
-	GetNumSpellBookSkillLines = function() return 2 end,
-	GetSpellBookSkillLineInfo = function(i)
-		if i == 1 then return { name = "Général", itemIndexOffset = 0, numSpellBookItems = 1 } end
-		return { name = "Guerrier", itemIndexOffset = 1, numSpellBookItems = #BOOK - 1 }
-	end,
+	GetNumSpellBookSkillLines = function() return #TABS end,
+	GetSpellBookSkillLineInfo = function(i) local _, lines = Flat() return lines[i] end,
 	GetSpellBookItemInfo = function(i)
-		local e = BOOK[i]
+		local e = (Flat())[i]
 		return e and { spellID = e.spellID, name = NAMES[e.spellID], itemType = e.itemType, isPassive = e.isPassive or false }
 	end,
 }
@@ -121,6 +146,8 @@ local files = { "Donnees/Butins.lua", "Donnees/Objets.lua", "Donnees/Entrees.lua
 	"Donnees/Marchandises.lua", "Solver.lua", "Geo.lua", "Data.lua", "DungeonJournal.lua", "Planner.lua", "Guide.lua", "UI.lua",
 	"Options.lua", "Group.lua", "Gear.lua", "GearUI.lua", "Pilote.lua", "Autonomie.lua", "Core.lua" }
 PLAYER.map, PLAYER.x, PLAYER.y = 1413, 0.515, 0.303
+local before = {}
+for s, a in pairs(ACTIONS) do before[s] = { a[1], a[2] } end
 local ns = LoadAddon(ADDON_DIR, files)
 Fire("ADDON_LOADED", "Itineraire")
 ns.db.pilote = { talents = "non" }
@@ -158,25 +185,14 @@ local function Printed(pattern)
 	end
 end
 
--- 0. Avant réponse : remplissage 2.5.0 (cases vides seulement) et la question, une fois.
+-- 0. Rangement tout seul à la connexion (aucune question) ; le rang 2 de Frappe héroïque remplace le 1 (pas noté
+--    pour l'annulation : c'est le même sort).
 local q = ItineraireQuestion
-assert(q and q:IsShown() and q.text:GetText():find("par posture"), "pas de question de rangement")
+assert(not (q and q:IsShown()), "une question a été posée : le rangement doit être automatique")
 Expect(74, "spell", 284, "Frappe héroïque pas passée au rang 2")
-Expect(72, "spell", 1715, "remplissage des cases vides (avant rangement)")
-local before = Copy()
+before[74] = { "spell", 284 }
 
-local function Answer(label)
-	for _, b in ipairs(q.buttons) do
-		if b:IsShown() and b:GetText() == label then
-			b.scripts.OnClick(b)
-			return
-		end
-	end
-	error("pas de bouton « " .. label .. " »")
-end
-
--- 1. « Ranger » : chaque touche à son rôle.
-Answer("Ranger")
+-- 1. Chaque touche à son rôle (sorts des trois onglets du grimoire).
 assert(CURSOR == nil, "curseur pas vidé")
 local COMBAT_PAGE = { 100, 284, 7384, 402927, 7386, 6343, 772, 72, 694, 5308, 1715, 20230 }
 local DEF_PAGE = { nil, 284, 6572, 402927, 7386, 6343, 2565, 72, 355, 1160, 676, 12975 }
@@ -209,7 +225,7 @@ for s = 61, 72 do
 	end
 end
 assert(not Is(61, "spell", 694) and not Is(70, "spell", 676), "anciens sorts restés")
-assert(Printed("barres rangées par posture %(Combat, Défensive%)") and Printed("4 objet%(s%) ou macro%(s%) déplacé"),
+assert(Printed("barres rangées automatiquement par posture %(Combat, Défensive%)") and Printed("4 objet%(s%) ou macro%(s%) déplacé"),
 	"message de rangement")
 
 -- 2. Annuler : tout revient exactement ; puis on range de nouveau (même résultat).
@@ -221,7 +237,22 @@ assert(ns.char.actionbars.layout == "non", "entretien pas arrêté après annula
 ns.Auto.BarsCommand("ranger")
 Expect(76, "spell", 402927, "2e rangement")
 Expect(85, "companion", 5, "2e rangement : compagnon")
-assert(ns.char.actionbars.layout == 1, "rangement pas noté")
+assert(ns.char.actionbars.layout == 2, "rangement pas noté")
+
+-- 2 bis. Nouvelle version du rangement (une sauvegarde de la 2.7.0 : version 1) : rangé de nouveau tout seul, et le
+--        sort en double laissé par l'ancienne version sur la barre du dessus s'en va.
+ns.char.actionbars.layout = 1
+ACTIONS[69] = A("spell", 6572) -- Vengeance en double sur la barre du dessus (la 2.7.0 la prenait pour un sort étranger)
+Fire("SPELLS_CHANGED")
+Advance(3)
+assert(Printed("barres rangées de nouveau par posture"), "pas rangé de nouveau")
+assert(ns.char.actionbars.layout == 2, "version pas notée")
+Expect(69, "spell", 1240193, "Heurtoir remis à sa place")
+Expect(87, "spell", 6572, "Vengeance (Défensive 3)")
+for s = 1, 180 do
+	assert(not Is(s, "spell", 6572) or s == 87, "Vengeance en double en case " .. s)
+end
+Expect(72, "item", 118, "potion déplacée")
 print(table.concat(ns.Auto.LayoutLines(), "\n"))
 
 -- 3. Entretien : Avant-garde (Charge en Défensive) ; le compagnon garé repart vers la case libérée.
@@ -276,6 +307,6 @@ local snap = Copy()
 ns.Auto.BarsCommand("ranger")
 assert(Same(ACTIONS, snap), "barres touchées malgré une page inattendue")
 assert(Printed("rien rangé %(la barre principale montre la case 1 %(page 2, attendu 85%)"), "refus pas expliqué")
-assert(ns.ReportText():find("rangement : 1"), "état absent du rapport")
+assert(ns.ReportText():find("rangement : 2"), "état absent du rapport")
 print(ns.ReportText():match("Autonomie[^\n]*"))
 print("OK barres par posture")

@@ -668,6 +668,89 @@ function Data.RepairPoints(yield)
 	return Data.TownsfolkPoints("Repair", yield)
 end
 
+-------------------------------------------------------------------------------
+-- Zones trop hautes pour ton niveau
+-------------------------------------------------------------------------------
+-- Niveaux des zones de Forever 1.60.1 : [carte] = { plus bas, plus haut }. Plages publiées par warcraft.wiki
+-- (« Zones by level (original) »), telles que Shortest Path Forever les reprend (Data/Zones.lua, GPL v3, build
+-- 1.60.1.70938) ; les Clairières-du-Fleuve (Riverglades) sont une zone de Forever. Les capitales n'y sont pas, ni
+-- Reflet-de-Lune (un village : les druides y vont dès le niveau 10).
+local ZONE_LEVELS = {
+	[1411] = { 1, 10 }, [1412] = { 1, 10 }, [1413] = { 10, 25 }, [1416] = { 30, 40 }, [1417] = { 30, 40 },
+	[1418] = { 35, 45 }, [1419] = { 45, 55 }, [1420] = { 1, 10 }, [1421] = { 10, 20 }, [1422] = { 51, 58 },
+	[1423] = { 53, 60 }, [1424] = { 20, 30 }, [1425] = { 40, 50 }, [1426] = { 1, 10 }, [1427] = { 45, 50 },
+	[1428] = { 50, 58 }, [1429] = { 1, 10 }, [1430] = { 55, 60 }, [1431] = { 18, 30 }, [1432] = { 10, 20 },
+	[1433] = { 15, 25 }, [1434] = { 30, 45 }, [1435] = { 35, 45 }, [1436] = { 10, 20 }, [1437] = { 20, 30 },
+	[1438] = { 1, 10 }, [1439] = { 10, 20 }, [1440] = { 18, 30 }, [1441] = { 25, 35 }, [1442] = { 15, 27 },
+	[1443] = { 30, 40 }, [1444] = { 40, 50 }, [1445] = { 35, 45 }, [1446] = { 40, 50 }, [1447] = { 45, 55 },
+	[1448] = { 48, 55 }, [1449] = { 48, 55 }, [1451] = { 55, 60 }, [1452] = { 53, 60 }, [2548] = { 36, 44 },
+}
+-- Comme Shortest Path (« Éviter les zones bien au-dessus de mon niveau ») : une zone dont le plus bas niveau est 4
+-- au-dessus du tien est trop haute.
+Data.ZONE_GAP = 4
+Data.ZONE_LEVELS = ZONE_LEVELS
+
+local zoneLevelCache = {}
+-- Plus bas et plus haut niveau de la zone d'une carte (une grotte compte pour sa zone), ou nil.
+function Data.ZoneLevels(map)
+	if type(map) ~= "number" then
+		return nil
+	end
+	local cached = zoneLevelCache[map]
+	if cached == nil then
+		local zone = Geo.Zone(map) or map
+		local z = ZONE_LEVELS[zone] or ZONE_LEVELS[map]
+		cached = z and { z[1], z[2] } or false
+		if not z and C_Map and C_Map.GetMapLevels then
+			-- zone que le tableau ne connaît pas (nouvelle zone de Forever) : les niveaux du jeu, s'il les donne
+			local info = C_Map.GetMapInfo and Call(C_Map.GetMapInfo, zone)
+			local low, high = Call(C_Map.GetMapLevels, zone)
+			if type(info) == "table" and info.mapType == 3 and type(low) == "number" and low > 0
+				and type(high) == "number" and high >= low then
+				cached = { low, high }
+			end
+		end
+		zoneLevelCache[map] = cached
+	end
+	if cached then
+		return cached[1], cached[2]
+	end
+	return nil
+end
+
+-- La zone de cette carte est-elle trop haute pour le niveau `level` (le tien par défaut) ? Son plus bas niveau, son
+-- plus haut et son nom ; nil sinon.
+function Data.ZoneDanger(map, level)
+	local low, high = Data.ZoneLevels(map)
+	level = level or Call(UnitLevel, "player") or 1
+	if low and low >= level + Data.ZONE_GAP then
+		return low, high, Geo.ZoneName(Geo.Zone(map) or map)
+	end
+	return nil
+end
+
+-- Les points hors des zones trop hautes. S'ils y sont tous : tous, et { low, high, name } de la zone.
+function Data.SafePoints(points, level)
+	local safe, danger = {}, nil
+	for _, p in ipairs(points or {}) do
+		local low, high, name = Data.ZoneDanger(p.map, level)
+		if low then
+			danger = danger or { low = low, high = high, name = name }
+		else
+			safe[#safe + 1] = p
+		end
+	end
+	if #safe > 0 or not danger then
+		return safe, nil
+	end
+	return points, danger
+end
+
+function Data.DangerText(danger)
+	return string.format("zone niveau %d-%d : %s", danger.low, danger.high or danger.low,
+		(danger.name and danger.name ~= "") and danger.name or "?")
+end
+
 -- Pierre de foyer : prête dans combien de secondes, et où elle ramène (lieu lu chez Shortest Path).
 local HEARTHSTONE = 6948
 function Data.Hearth()

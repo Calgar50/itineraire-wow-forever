@@ -42,9 +42,14 @@ end
 -- Dépôt public d'Itinéraire (paquet, installateur, nouveautés).
 ns.HOME = "github.com/Calgar50/itineraire-wow-forever"
 -- Version de l'installateur attendue par cette version d'Itinéraire (Installateur.lua est écrit par lui).
-ns.INSTALLER_WANTED = 4
+ns.INSTALLER_WANTED = 5
 -- Nouveautés affichées une fois après une mise à jour (pas de flèches Unicode : police du jeu incertaine).
 ns.NEWS = {
+	["2.8.0"] = {
+		"Barres d'action : le rangement par posture, forme ou camouflage se fait TOUT SEUL (plus de question), puis il est entretenu. Il est refait une fois maintenant : les versions précédentes ne lisaient qu'un onglet du grimoire (Armes), et Vengeance, Cri de guerre, Désarmement… manquaient ou partaient sur la barre du dessus. /iti barres annuler pour revenir, /iti barres non pour ne plus ranger.",
+		"Trajet selon ton niveau : une zone dont le plus bas niveau est 4 au-dessus du tien (comme le réglage de Shortest Path) n'est plus proposée : ni quête à prendre, ni marchand, ni maître, ni auberge là-bas. Une quête de ton journal qui ne se fait (ou ne se rend) que là passe à la fin du trajet, avec la raison (« zone niveau 30-40 : Désolace ») ; aucune n'est écartée.",
+		"Installateur 5 : la mise à jour automatique passe vraiment (avant, elle attendait 10 min d'ordinateur inutilisé et ne tournait presque jamais) ; elle reste sans fenêtre et ne fait rien quand WoW est ouvert. Relance une fois l'installateur du paquet.",
+	},
 	["2.7.0"] = {
 		"Barres rangées aussi pour le DRUIDE (par forme : humanoïde, félin, ours ; sélénien et félin en rôdant dès que le jeu leur donne une page) et le VOLEUR (camouflé ou non). Même rôle sur la même touche partout : 6 Lucioles dans toutes les formes, 1 Attaque pernicieuse / Coup bas, 2 Attaque sournoise / Embuscade… Exigences de forme de Forever (Lucioles et Charge farouche en forme animale, Préméditation sans camouflage). /iti barres pour voir chaque touche.",
 	},

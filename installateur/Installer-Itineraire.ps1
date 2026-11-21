@@ -15,7 +15,8 @@
 
     Mise a jour automatique (proposee a la fin, ou -ActiverMajAuto) : une tache planifiee de Windows,
     a ton nom et sans droits d'administrateur, relance ce script en mode -Auto a l'ouverture de session
-    puis toutes les 4 heures, seulement quand l'ordinateur est inutilise depuis 10 minutes, et ne fait
+    (2 minutes apres) puis toutes les 4 heures, sans aucune fenetre (conhost --headless ; sur un Windows
+    trop ancien pour cela : seulement quand l'ordinateur est inutilise depuis 10 minutes), et ne fait
     rien si WoW est ouvert. Elle utilise une copie de ce script rangee dans
     %LOCALAPPDATA%\Itineraire (journal : maj.log). -DesactiverMajAuto la retire.
 
@@ -64,7 +65,7 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'   # sinon les telechargements sont tres lents sous PowerShell 5.1
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 
-$InstallerVersion = 4
+$InstallerVersion = 5
 $UserAgent = 'Itineraire-Installateur'
 $ItiRepo = 'Calgar50/itineraire-wow-forever'
 $Sources = @(
@@ -448,15 +449,30 @@ function Enable-AutoUpdate([string]$Forever) {
     }
     $user = "$env:USERDOMAIN\$env:USERNAME"
     $arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + $AutoScript + '" -Auto -WowPath "' + $Forever + '"'
-    $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $arguments
+    $conhost = Join-Path $env:WINDIR 'System32\conhost.exe'
+    $headless = (Test-Path -LiteralPath $conhost -PathType Leaf) -and ([Environment]::OSVersion.Version.Build -ge 19041)
+    if ($headless) {
+        # conhost --headless : aucune fenetre, pas meme un eclair (Windows 10 2004 et plus recent). La mise a jour
+        # peut donc tourner quand tu utilises l'ordinateur ; WoW ouvert, elle ne fait rien (voir -Auto).
+        $action = New-ScheduledTaskAction -Execute $conhost -Argument ('--headless powershell.exe ' + $arguments)
+    } else {
+        $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $arguments
+    }
     $atLogon = New-ScheduledTaskTrigger -AtLogOn -User $user
     $atLogon.Delay = 'PT2M'
     $daily = New-ScheduledTaskTrigger -Daily -At '03:00'
     $daily.Repetition = (New-ScheduledTaskTrigger -Once -At '03:00' -RepetitionInterval (New-TimeSpan -Hours 4) -RepetitionDuration (New-TimeSpan -Days 1)).Repetition
-    # Seulement quand l'ordinateur est inutilise : jamais de fenetre qui passe pendant que tu joues.
-    $settings = New-ScheduledTaskSettingsSet -RunOnlyIfIdle -IdleDuration (New-TimeSpan -Minutes 10) -IdleWaitTimeout (New-TimeSpan -Hours 4) `
-        -DontStopOnIdleEnd -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
-        -ExecutionTimeLimit (New-TimeSpan -Minutes 30) -MultipleInstances IgnoreNew
+    if ($headless) {
+        # Installateur 4 : seulement si l'ordinateur etait inutilise 10 min. Trop strict : la mise a jour ne passait
+        # presque jamais quand on se sert de l'ordinateur. Sans fenetre, plus besoin d'attendre.
+        $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+            -ExecutionTimeLimit (New-TimeSpan -Minutes 30) -MultipleInstances IgnoreNew
+    } else {
+        # Sans conhost --headless, une fenetre passerait un instant : seulement quand l'ordinateur est inutilise.
+        $settings = New-ScheduledTaskSettingsSet -RunOnlyIfIdle -IdleDuration (New-TimeSpan -Minutes 10) -IdleWaitTimeout (New-TimeSpan -Hours 4) `
+            -DontStopOnIdleEnd -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+            -ExecutionTimeLimit (New-TimeSpan -Minutes 30) -MultipleInstances IgnoreNew
+    }
     $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited
     Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger @($atLogon, $daily) -Settings $settings -Principal $principal `
         -Description 'Met a jour Itineraire, Questie, Shortest Path Forever et DungeonJournal pour WoW Forever (Installer-Itineraire.ps1 -Auto). Desactiver : relancer l''installateur avec -DesactiverMajAuto.' -Force | Out-Null
@@ -783,8 +799,8 @@ try {
         } elseif (-not $Oui) {
             Say ''
             Say 'Mise a jour automatique : Itineraire, Questie, Shortest Path et DungeonJournal restent a jour tout seuls' White
-            Say '(verification a l''ouverture de session puis toutes les 4 h, seulement quand l''ordinateur est' White
-            Say 'inutilise et WoW ferme ; desactivable en relancant avec -DesactiverMajAuto).' White
+            Say '(verification a l''ouverture de session puis toutes les 4 h, sans fenetre, jamais quand WoW est' White
+            Say 'ouvert ; desactivable en relancant avec -DesactiverMajAuto).' White
             $answer = Read-Host 'Activer la mise a jour automatique ? (O/n)'
             if ($answer -notmatch '^[nN]') { Enable-AutoUpdate $forever }
         }

@@ -90,6 +90,16 @@ local VERBS = {
 	spell = "Utiliser", event = "", log = "", reputation = "Réputation",
 }
 
+-- Les points hors des zones trop hautes pour le niveau `level` ; vide s'ils y sont tous (pour ce qu'on PROPOSE :
+-- quêtes à prendre, marchands, maîtres ; une quête du journal, elle, passe seulement à la fin du trajet).
+local function SafeOnly(points, level)
+	local safe, danger = Data.SafePoints(points, level)
+	if danger then
+		return {}
+	end
+	return safe
+end
+
 -- Contexte du calcul en cours : rythme mesuré du joueur (secondes par unité), en groupe ou non.
 local CONTEXT = { rates = {}, targets = {}, slots = {}, grouped = false, gearQuests = {} }
 
@@ -305,8 +315,15 @@ function Planner.Tasks(opts, plan, yield)
 				q.hint = hint.hint
 			end
 			if #points > 0 then
-				turnins[#turnins + 1] = { q = q, point = NearestPoint(points, plan.player) }
-				plan.turninTask[q.id] = turnins[#turnins]
+				-- rendu dans une zone trop haute pour toi : à la fin du trajet (sauf la quête suivie)
+				local safe, danger = Data.SafePoints(points, level)
+				local t = { q = q, point = NearestPoint(safe, plan.player) }
+				if danger and not focused then
+					t.tier, t.late = TIER_LATER, Data.DangerText(danger)
+					q.status = "à rendre, à la fin (" .. t.late .. ")"
+				end
+				turnins[#turnins + 1] = t
+				plan.turninTask[q.id] = t
 			else
 				q.status = "position inconnue"
 				side.unknown[#side.unknown + 1] = { q = q, what = "où la rendre" }
@@ -329,6 +346,13 @@ function Planner.Tasks(opts, plan, yield)
 					o.slot = q.id .. ":" .. i
 					o.target = Data.ObjectiveTarget(quest, i, o.type)
 					local points, meta = Data.ObjectivePoints(quest, i)
+					-- seulement les endroits hors des zones trop hautes ; s'il n'y a que ça : à la fin du trajet
+					local safe, danger = Data.SafePoints(points, level)
+					points = safe
+					if danger then
+						gate = math.max(gate, danger.low - 1)
+						late = late or Data.DangerText(danger)
+					end
 					if meta.level then
 						gate = math.max(gate, meta.level)
 					end
@@ -405,8 +429,13 @@ function Planner.Tasks(opts, plan, yield)
 						points = { guess } -- (DonData : PNJ du rendu connu de ses données ou de ses joueurs)
 					end
 					if #points > 0 then
-						turnins[#turnins + 1] = { q = q, point = NearestPoint(points, plan.player), after = true }
-						plan.turninTask[q.id] = turnins[#turnins]
+						local safe, danger = Data.SafePoints(points, level)
+						local t = { q = q, point = NearestPoint(safe, plan.player), after = true }
+						if danger and not focused and (q.tier or TIER_NOW) < TIER_LATER then
+							t.tier, t.late = TIER_LATER, Data.DangerText(danger) -- le rendu à la fin, les objectifs avant
+						end
+						turnins[#turnins + 1] = t
+						plan.turninTask[q.id] = t
 					else
 						side.unknown[#side.unknown + 1] = { q = q, what = "où la rendre" }
 					end
@@ -430,7 +459,7 @@ end
 local function AddTask(stop, t, work)
 	stop.tasks[#stop.tasks + 1] = t
 	stop.work = stop.work + work
-	stop.tier = math.min(stop.tier, t.q.tier or TIER_NOW)
+	stop.tier = math.min(stop.tier, t.tier or t.q.tier or TIER_NOW)
 	if t.q.promoted then
 		stop.promoted = true
 		stop.gateLevel = math.max(stop.gateLevel or 0, t.q.needLevel or 0)
@@ -561,6 +590,11 @@ local function Describe(stop)
 	end
 	if stop.tier == TIER_LATER then
 		local why = {}
+		for _, t in ipairs(stop.tasks) do
+			if t.late then
+				why[#why + 1] = t.late -- (un rendu dans une zone trop haute)
+			end
+		end
 		for _, q in ipairs(stop.quests) do
 			if q.late then
 				why[#why + 1] = q.late
@@ -707,7 +741,7 @@ function Planner.Pickups(opts, plan, stops, yield)
 		local lvl = quest and quest.level
 		if quest and lvl and lvl > 0 and lvl <= level + 2 and lvl >= level - 4
 			and not Data.Flag("IsRaidQuest", id) and not Data.Flag("IsPvPQuest", id) and not inLog[id] and Data.CanTake(id, quest, inLog) then
-			local points = Data.StarterPoints(quest)
+			local points = SafeOnly(Data.StarterPoints(quest), level)
 			if #points > 0 then
 				candidates[#candidates + 1] = { id = id, name = quest.name, level = lvl, points = points }
 			end
@@ -1145,8 +1179,8 @@ local function InRegion(points, region)
 end
 
 local function Evaluate(id, quest, level, base, first, speed, chainOf, after, region)
-	local starters = InRegion(Data.StarterPoints(quest), region)
-	local finishers = Data.FinisherPoints(quest)
+	local starters = SafeOnly(InRegion(Data.StarterPoints(quest), region), level)
+	local finishers = SafeOnly(Data.FinisherPoints(quest), level)
 	if #starters == 0 or #finishers == 0 then
 		return nil
 	end
@@ -1181,6 +1215,7 @@ local function Evaluate(id, quest, level, base, first, speed, chainOf, after, re
 	for i = 1, #(quest.ObjectiveData or {}) do
 		local kind, label = Data.ObjectiveLabel(quest, i)
 		local points, meta = Data.ObjectivePoints(quest, i)
+		points = SafeOnly(points, level)
 		if #points == 0 or (meta.level and meta.level >= level + 3) then
 			return nil -- position inconnue, donjon ou monstres trop forts : on ne propose pas
 		end
@@ -1249,8 +1284,8 @@ local function EvaluateDungeon(id, quest, level, base, speed, dungeons)
 	if #data == 0 then
 		return nil
 	end
-	local starters = Data.StarterPoints(quest)
-	local finishers = Data.FinisherPoints(quest)
+	local starters = SafeOnly(Data.StarterPoints(quest), level)
+	local finishers = SafeOnly(Data.FinisherPoints(quest), level)
 	if #starters == 0 or #finishers == 0 then
 		return nil
 	end
@@ -1468,7 +1503,8 @@ function Planner.SelectCandidates(opts, plan, stops, order, C, yield)
 				local want = wanted[id] and quest and (quest.requiredLevel or 0) <= level
 				if want or (lvl and lvl > 0 and lvl <= level + 2 and lvl >= level - 5 and (quest.requiredLevel or 0) <= level) then
 					local best
-					for _, sp in ipairs(Data.StarterPoints(quest)) do
+					local starters = SafeOnly(Data.StarterPoints(quest), level)
+					for _, sp in ipairs(starters) do
 						for _, node in ipairs(nodes) do
 							local d = Dist(sp, node)
 							if d and (not best or d < best) then
@@ -1478,7 +1514,7 @@ function Planner.SelectCandidates(opts, plan, stops, order, C, yield)
 					end
 					local inRegion = false
 					if region then
-						for _, sp in ipairs(Data.StarterPoints(quest)) do
+						for _, sp in ipairs(starters) do
 							inRegion = inRegion or Geo.Zone(sp.map) == region
 						end
 					end
@@ -1649,7 +1685,8 @@ function Planner.SelectErrand(need, plan, stops, order, C, yield)
 		if i % 200 == 0 then
 			yield()
 		end
-		if point.inst == plan.player.inst then
+		-- (jamais un marchand ou un maître dans une zone trop haute pour toi)
+		if point.inst == plan.player.inst and not Data.ZoneDanger(point.map, plan.level) then
 			local d = BestInsert(nodes, legs, point, 2, last, speed)
 			if d and (not bestD or d < bestD) then
 				best, bestD = point, d
@@ -1671,7 +1708,8 @@ function Planner.SelectGoal(goal, plan, stops, order, C, yield)
 	local nodes, legs = Line(plan, stops, order, C)
 	local speed = Geo.Speed()
 	local best, bestD
-	for i, point in ipairs(goal.points or {}) do
+	local points = Data.SafePoints(goal.points or {}, plan.level) -- (hors des zones trop hautes, s'il y a le choix)
+	for i, point in ipairs(points) do
 		if i % 50 == 0 then
 			yield()
 		end
@@ -2113,7 +2151,8 @@ function Planner.Hearth(plan, yield)
 		if i % 50 == 0 then
 			yield()
 		end
-		if inn.inst == plan.player.inst and not (hearth.point and Geo.Yards(inn, hearth.point) and Geo.Yards(inn, hearth.point) < 150) then
+		if inn.inst == plan.player.inst and not Data.ZoneDanger(inn.map, plan.level)
+			and not (hearth.point and Geo.Yards(inn, hearth.point) and Geo.Yards(inn, hearth.point) < 150) then
 			local g = HearthLeg(order, inn, hearth.ready, speed)
 			if g and g > bestGain then
 				best, bestGain = inn, g

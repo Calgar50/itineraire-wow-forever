@@ -8,7 +8,7 @@
 --   - SACS : un sac de tes sacs va dans un emplacement de sac libre.
 --   - BARRES D'ACTION : les sorts de ta classe qui n'y sont pas vont dans les cases vides, et un sort passe à son rang
 --     supérieur dès que tu l'apprends (à la même place). Guerrier : barres RANGÉES PAR POSTURE (même rôle sur la même
---     touche dans chaque posture), druide (par forme), voleur (camouflage) ; proposé une fois, puis entretenu ;
+--     touche dans chaque posture), druide (par forme), voleur (camouflage) ; fait tout seul, puis entretenu ;
 --     /iti barres.
 -- Tout passe par le pilote (marche / arrêt, une case par partie) ; si le jeu bloque une action, la partie se coupe.
 --
@@ -1686,17 +1686,34 @@ function Auto.ClassSpells()
 		local bank = Enum and Enum.SpellBookSpellBank and Enum.SpellBookSpellBank.Player or 0
 		local spellType = Enum and Enum.SpellBookItemType and Enum.SpellBookItemType.Spell or 1
 		local className = Call(UnitClass, "player")
-		local lines, chosen = Num(Call(SB.GetNumSpellBookSkillLines)) or 0, nil
-		for i = 1, lines do
+		local count, chosen = Num(Call(SB.GetNumSpellBookSkillLines)) or 0, {}
+		for i = 1, count do
 			local info = Call(SB.GetSpellBookSkillLineInfo, i)
 			if type(info) == "table" and info.name == className then
-				chosen = info
+				chosen = { info }
 			end
 		end
-		chosen = chosen or (lines >= 2 and Call(SB.GetSpellBookSkillLineInfo, 2)) or nil
-		if type(chosen) == "table" then
-			local first = Num(chosen.itemIndexOffset) or 0
-			for index = first + 1, first + (Num(chosen.numSpellBookItems) or 0) do
+		if #chosen == 0 then
+			-- Forever (comme Classic) : un onglet par arbre de talents (Armes, Fureur, Protection…) après « Général ».
+			-- Les lire TOUS (avant 2.8.0, seul le 1er l'était : Vengeance, Cri de guerre… passaient pour étrangers).
+			local professions, indexes = {}, { Call(rawget(_G, "GetProfessions")) }
+			for k = 1, 6 do -- (des trous possibles : pas de ipairs)
+				local index = indexes[k]
+				local name = Num(index) and Call(rawget(_G, "GetProfessionInfo"), index)
+				if type(name) == "string" then
+					professions[name] = true
+				end
+			end
+			for i = 2, count do
+				local info = Call(SB.GetSpellBookSkillLineInfo, i)
+				if type(info) == "table" and not info.isGuild and not info.shouldHide and not professions[info.name or ""] then
+					chosen[#chosen + 1] = info
+				end
+			end
+		end
+		for _, line in ipairs(chosen) do
+			local first = Num(line.itemIndexOffset) or 0
+			for index = first + 1, first + (Num(line.numSpellBookItems) or 0) do
 				local item = Call(SB.GetSpellBookItemInfo, index, bank)
 				if type(item) == "table" and not item.isPassive and not item.isOffSpec
 					and (item.itemType == nil or item.itemType == spellType) then
@@ -1805,9 +1822,9 @@ end
 --   Charge farouche en félin et en ours, Préméditation sans camouflage…
 --   La page d'une forme est celle que le jeu montre vraiment : vue en jeu (`seen`), sinon celle de Classic (félin 1,
 --   ours 3, camouflage 1) ; les pages incertaines (sélénien, rôder) ne servent qu'une fois vues.
---   Rangement complet (une question, une fois ; ou /iti barres ranger) : tes objets et macros des touches du
---   rangement vont dans une case libre affichée (jamais effacés ; sans case libre, la touche reste à toi), et tout
---   est noté pour /iti barres annuler. Ensuite, entretien : un nouveau sort va à sa touche si elle est vide (ou tenue
+--   Rangement complet (tout seul, la 1re fois et à chaque nouvelle version du rangement ; ou /iti barres ranger) :
+--   tes objets et macros des touches du rangement vont dans une case libre affichée (jamais effacés ; sans case libre,
+--   la touche reste à toi), et tout est noté pour /iti barres annuler. Ensuite, entretien : un nouveau sort va à sa touche si elle est vide (ou tenue
 --   par un sort que nous y avions mis en attendant) ; une case que tu changes reste à toi.
 -------------------------------------------------------------------------------
 local STRIKE = { 23922, 12294, 23881, 402927 } -- Heurt de bouclier, Frappe mortelle, Sanguinaire ; Sursaut de victoire
@@ -1817,11 +1834,8 @@ local HUMAN = { [1] = true } -- soins : pas en sélénien
 local STEALTH = { [2] = true } -- voleur : camouflé
 local LAYOUTS = {
 	WARRIOR = {
-		version = 1,
+		version = 2, -- (2 : refait une fois en 2.8.0, les sorts de tous les onglets du grimoire enfin lus)
 		what = "posture",
-		ask = "Ranger tes barres d'action par posture ?\nChaque touche garde le même rôle dans chaque posture (1 Charge, "
-			.. "3 Fulgurance / Vengeance, 8 interrompre, 9 provoquer, 12 survie…) ; les cris et les autres sorts vont sur "
-			.. "la barre du dessus. Tes objets et macros sont déplacés, jamais effacés. /iti barres annuler pour revenir.",
 		-- pages : leur forme (posture) et leur page de la barre principale (GetBonusBarOffset)
 		pages = {
 			{ key = "combat", label = "Combat", form = { 2457 }, offset = 1 },
@@ -1875,11 +1889,8 @@ local LAYOUTS = {
 			1310222, 18499, 72 },
 	},
 	DRUID = {
-		version = 1,
+		version = 2,
 		what = "forme",
-		ask = "Ranger tes barres d'action par forme ?\nChaque touche garde le même rôle dans chaque forme (1 Colère / "
-			.. "Griffe / Mutiler, 3 Éclat lunaire / Griffure / Lacérer, 6 Lucioles partout, 8 étourdir…) ; le reste va "
-			.. "sur la barre du dessus. Tes objets et macros sont déplacés, jamais effacés. /iti barres annuler pour revenir.",
 		free = { [1] = true, [5] = true }, -- un sort sans forme exigée : en humanoïde et en sélénien
 		pages = {
 			{ key = "humanoide", label = "Humanoïde", always = true, offset = 0 },
@@ -1922,12 +1933,8 @@ local LAYOUTS = {
 			18562, 2908, 1322605, 5225, 18960 },
 	},
 	ROGUE = {
-		version = 1,
+		version = 2,
 		what = "camouflage",
-		ask = "Ranger tes barres d'action pour le camouflage ?\nLa barre principale change quand tu es camouflé ; chaque "
-			.. "touche y garde le même rôle (1 Attaque pernicieuse / Coup bas, 2 Attaque sournoise / Embuscade, 5 Rupture / "
-			.. "Garrot, 7 Suriner / Assommer…) ; les autres techniques vont sur la barre du dessus. Tes objets et macros "
-			.. "sont déplacés, jamais effacés. /iti barres annuler pour revenir.",
 		pages = {
 			{ key = "normal", label = "Normal", always = true, offset = 0 },
 			{ key = "camouflage", label = "Camouflé", need = { 1784 }, stealth = true, offset = 1, transient = true },
@@ -2435,6 +2442,16 @@ function Auto.ArrangeBars(force)
 			end
 		end
 	end
+	-- (rangement complet : un objet ou une macro sur une touche libre d'une page est « garé » : il repartira vers une
+	-- case libre le jour où cette touche servira)
+	if force then
+		for _, slot in ipairs(stanceSlots) do
+			local c = not want[slot] and Content(slot)
+			if c and not c.class then
+				parked[slot] = { kind = c.kind, id = c.id }
+			end
+		end
+	end
 	-- 4. la barre fixe
 	local staticSet = {}
 	for _, s in ipairs(t.static) do
@@ -2481,14 +2498,15 @@ function Auto.ArrangeBars(force)
 	return res
 end
 
-local function ReportArranged(res, force)
+local function ReportArranged(res, force, verb)
 	if force then
 		local labels = {}
 		for _, p in ipairs(res.pages) do
 			labels[#labels + 1] = p.label
 		end
-		ns.Print(string.format("barres rangées par %s (%s) : %d sort(s) posé(s)%s. /iti barres pour voir chaque "
-			.. "touche, /iti barres annuler pour revenir.", res.what or "posture", table.concat(labels, ", "), #res.placed,
+		ns.Print(string.format("barres %s par %s (%s) : %d sort(s) posé(s)%s. /iti barres pour voir chaque "
+			.. "touche, /iti barres annuler pour revenir.", verb or "rangées", res.what or "posture",
+			table.concat(labels, ", "), #res.placed,
 			res.moved > 0 and (", " .. res.moved .. " objet(s) ou macro(s) déplacé(s) vers une case libre") or ""))
 	elseif #res.placed > 0 then
 		ns.Print("barres d'action : " .. table.concat(res.placed, ", ")
@@ -2628,22 +2646,22 @@ function Auto.BarsCommand(arg)
 	end
 end
 
-local layoutAsked
-local function AskLayout(layout)
-	if layoutAsked or Auto.Asking("barres") then
-		return
+-- Rangement automatique (pas de question) : la première fois, et quand le rangement change de version. Pas si tu
+-- l'as annulé ou refusé (/iti barres annuler, /iti barres non : state.layout = "non").
+local function AutoArrange(layout, state)
+	local res, why = Auto.ArrangeBars(true)
+	if not res then
+		if why ~= state.layoutError then
+			state.layoutError = why
+			Note("barres : rangement automatique pas fait (" .. tostring(why) .. ")")
+		end
+		return false
 	end
-	layoutAsked = true
-	Auto.Ask("barres", layout.ask, {
-		{ label = "Ranger", func = function()
-			Auto.BarsCommand("ranger")
-		end },
-		{ label = "Plus tard" },
-		{ label = "Jamais", func = function()
-			BarState().layout = "non"
-			ns.Print("barres : pas de rangement (/iti barres ranger quand tu veux).")
-		end },
-	})
+	local again = type(state.layout) == "number"
+	state.layout = layout.version
+	state.layoutError = nil
+	ReportArranged(res, true, again and "rangées de nouveau" or "rangées automatiquement")
+	return true
 end
 
 function Auto.CheckActionBars()
@@ -2658,7 +2676,10 @@ function Auto.CheckActionBars()
 	end
 	local layout = LAYOUTS[PlayerClass()]
 	local state = BarState()
-	-- barres rangées par posture : entretien
+	-- rangement par posture, forme ou camouflage : automatique, puis entretien
+	if layout and state.layout ~= layout.version and state.layout ~= "non" and AutoArrange(layout, state) then
+		return
+	end
 	if layout and state.layout == layout.version then
 		local res, why = Auto.ArrangeBars(false)
 		if res then
@@ -2707,10 +2728,6 @@ function Auto.CheckActionBars()
 	if missing > 0 and not fullWarned then
 		fullWarned = true
 		ns.Print("barres d'action : plus de case vide pour " .. missing .. " sort(s) (affiche une barre de plus : Échap > Options > Barres d'action).")
-	end
-	-- ta classe a un rangement par posture : proposé une fois
-	if layout and state.layout == nil then
-		AskLayout(layout)
 	end
 end
 

@@ -25,8 +25,8 @@ ACTIONS[1], ACTIONS[2] = A("spell", 1752), A("item", 5140) -- poudre éclipsante
 ACTIONS[73] = A("spell", 1785)
 local ns = Start()
 
-Answer("Ranger")
-assert(Printed("barres rangées par camouflage %(Normal, Camouflé%)"), "message de rangement")
+assert(not (ItineraireQuestion and ItineraireQuestion:IsShown()), "question posée : le rangement doit être automatique")
+assert(Printed("barres rangées automatiquement par camouflage %(Normal, Camouflé%)"), "message de rangement")
 ExpectPage(0, { 1752, 53, 2098, 5171, 1943, 1766, 1776, 408, 8647, 5277, 2983, 1856 }, "normale")
 ExpectPage(72, { 1833, 8676, 2098, 5171, 703, 1766, 6770, 921, 14183, 1725, 2983, 1785 }, "camouflée")
 Expect(61, "spell", 1785, "Camouflage (rang 2) en tête de la barre fixe")

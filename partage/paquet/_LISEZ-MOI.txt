@@ -1,6 +1,6 @@
 ITINÉRAIRE — le trajet le plus court à travers ton journal de quêtes
 ===================================================================
-(WoW Forever, version 2.7.0 du 20/11/2026 — github.com/Calgar50/itineraire-wow-forever)
+(WoW Forever, version 2.8.0 du 21/11/2026 — github.com/Calgar50/itineraire-wow-forever)
 
 Ce paquet contient :
   - Installer-Itineraire.cmd   (l'installation en un double-clic)
@@ -37,9 +37,9 @@ L'installateur :
     est plus ancien que le ForeverCore … inclus dans vos addons » à la connexion).
 
 MISE À JOUR AUTOMATIQUE (si tu as répondu oui)
-  - Windows relance l'installateur tout seul, en silence : à l'ouverture de session puis
-    toutes les 4 heures, SEULEMENT quand l'ordinateur est inutilisé depuis 10 minutes et
-    que WoW est fermé (jamais de fenêtre pendant que tu joues).
+  - Windows relance l'installateur tout seul, en silence et sans aucune fenêtre : à
+    l'ouverture de session puis toutes les 4 heures ; il ne fait rien quand WoW est
+    ouvert.
   - Les nouvelles versions comptent au lancement suivant du jeu ; Itinéraire te dit dans
     le tchat ce qui a été mis à jour.
   - Il ne se met jamais à jour lui-même : quand un nouvel installateur sort, Itinéraire te
@@ -132,8 +132,8 @@ Comme les guides « autopilot » : tout ce que le jeu permet aux addons.
     des barres affichées, et un sort passe à son rang supérieur dès que tu l'apprends (à
     la même place). Un sort que tu enlèves n'y revient plus. Affiche une barre de plus
     si elles sont pleines (Échap > Options).
-    GUERRIER : barres rangées PAR POSTURE (une question au démarrage, ou /iti barres
-    ranger). La barre principale change avec la posture ; chaque touche y garde le même
+    GUERRIER : barres rangées PAR POSTURE, tout seul (puis entretenu ; /iti barres non
+    pour ne plus ranger). La barre principale change avec la posture ; chaque touche y garde le même
     rôle : 1 Charge (Interception en Berserker), 2 Frappe héroïque, 3 Fulgurance /
     Vengeance / Tourbillon, 4 grosse frappe, 5 Fracasser l'armure, 6 Coup de tonnerre,
     8 interrompre, 9 provoquer, 12 survie… Les cris et les autres sorts vont sur la

@@ -353,3 +353,20 @@ Notes techniques de chaque version (la plus récente en bas). Pour l'usage, voir
   - Barre fixe : un sort sur aucune page, ou absent d'une page non passagère où il marche.
   - `outils/postures.py` vérifie les trois classes (123 sorts, 0 erreur) ; tests `auto_layout_druid_test.lua`,
     `auto_layout_rogue_test.lua` (faux jeu commun `layout_mock.lua`). 28 tests.
+- v2.8.0 (21/11/2026) : barres rangées tout seul, trajet selon le niveau, installateur 5.
+  - Barres : plus de question ; `AutoArrange` fait le rangement complet quand `actionbars.layout` n'est pas la
+    version du rangement (et n'est pas « non ») ; versions passées à 2 pour le refaire une fois. Corrigé :
+    `Auto.ClassSpells` ne lisait que l'onglet n° 2 du grimoire quand aucun ne porte le nom de la classe ; Forever
+    (comme Classic) a un onglet par arbre de talents (Armes, Fureur, Protection) : vu dans une vraie sauvegarde
+    (Vengeance déplacée comme un objet étranger, Cri de guerre absent). Tous les onglets après « Général » sont lus
+    (sauf guilde, cachés, métiers). Forever : `IsPlayerSpell(rang 1)` est faux quand un rang supérieur est appris.
+    Un objet sur une touche libre d'une page est « garé » après un rangement complet.
+  - Trajet : `Data.ZONE_LEVELS` (41 zones, plages warcraft.wiki reprises de Shortest Path ; Reflet-de-Lune exclu),
+    `Data.ZoneLevels` (repli `C_Map.GetMapLevels` pour une zone inconnue), `Data.ZoneDanger` (plus bas niveau ≥ le
+    tien + 4, comme `avoidHighZones` de Shortest Path), `Data.SafePoints`. Planner : objectifs et rendus pris hors des
+    zones trop hautes s'il y a le choix, sinon à la fin (`t.tier`/`t.late` pour un rendu seul, `stop.lateWhy`) ;
+    quêtes à prendre, proposées, de donjon, marchands, maîtres et auberges : jamais dans une zone trop haute.
+  - Installateur 5 : tâche planifiée lancée par `conhost.exe --headless` (aucune fenêtre) et SANS la condition
+    « inutilisé 10 min » (elle ne passait presque jamais : vu le 21/11, aucune vérification depuis la veille) ;
+    repli sur l'ancienne condition si Windows est trop ancien. `ns.INSTALLER_WANTED = 5`.
+  - Tests : `zone_test.lua` ; `auto_layout_test.lua` avec un grimoire à onglets et la version 1 → 2. 29 tests.

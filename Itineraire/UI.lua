@@ -796,7 +796,7 @@ local function RowTooltip(row)
 		GameTooltip:AddLine("• " .. line, 1, 1, 1, true)
 	end
 	if s.lateWhy then
-		GameTooltip:AddLine("À la fin du trajet : " .. s.lateWhy .. " (trop dur pour l'instant).", 1, 0.45, 0.45, true)
+		GameTooltip:AddLine("À la fin du trajet : " .. s.lateWhy .. " (trop dur pour ton niveau, pour l'instant).", 1, 0.45, 0.45, true)
 	end
 	if s.gateLevel then
 		GameTooltip:AddLine("Avancée : tu auras le niveau " .. s.gateLevel .. " en arrivant ici (estimation).", 1, 0.82, 0, true)
@@ -1264,7 +1264,7 @@ local function AdviceText(plan)
 	local lines = {}
 	local side = plan.side
 	if (plan.laterCount or 0) > 0 then
-		lines[#lines + 1] = "|cffff7777" .. plan.laterCount .. " étape(s) en fin de trajet|r : quêtes trop dures pour l'instant, gardées pour plus tard."
+		lines[#lines + 1] = "|cffff7777" .. plan.laterCount .. " étape(s) en fin de trajet|r : quêtes trop dures ou zones trop hautes pour ton niveau, gardées pour plus tard."
 	end
 	if (plan.awayCount or 0) > 0 then
 		lines[#lines + 1] = string.format("|cff999999Région %s d'abord|r : %d étape(s) ailleurs (%s) passent après.",
