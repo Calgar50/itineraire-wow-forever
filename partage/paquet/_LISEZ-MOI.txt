@@ -1,6 +1,6 @@
 ITINÉRAIRE — le trajet le plus court à travers ton journal de quêtes
 ===================================================================
-(WoW Forever, version 2.8.0 du 21/11/2026 — github.com/Calgar50/itineraire-wow-forever)
+(WoW Forever, version 3.0.0 du 21/11/2026 — github.com/Calgar50/itineraire-wow-forever)
 
 Ce paquet contient :
   - Installer-Itineraire.cmd   (l'installation en un double-clic)
@@ -170,6 +170,20 @@ CE QUE FAIT ITINÉRAIRE
   classe aux niveaux pairs, et te dit à quelle étape prendre la pierre de foyer.
 - ROUTE DES RENDUS : bouton « ? » (ou /iti rendus) = seulement rendre tes quêtes
   terminées, dans le meilleur ordre. Re-clic pour revenir au trajet complet.
+- MA SOIRÉE : bouton « Zzz » (ou /iti soiree 1h30, /iti soiree 23h pour « jusqu'à
+  23 h »). Tu dis combien de temps tu as : il garde les quêtes qui rapportent le plus
+  d'XP dans ce temps et finit le trajet dans une AUBERGE (ton repos y monte 4 fois plus
+  vite ; ta pierre de foyer t'y emmène si elle est prête et plus rapide). Le reste du
+  journal passe après (« après la soirée ») : aucune quête n'est écartée. À l'auberge :
+  le bilan de ta soirée. /iti soiree stop pour arrêter.
+- LA SUITE APRÈS LA RÉGION : quand ton journal se vide, une étape « Nouvelle région »
+  t'emmène dans la zone de ton niveau qui a le plus de quêtes à prendre.
+- MA MONTÉE : bouton parchemin (ou /iti montee) = la frise jusqu'au niveau 60 (quelle
+  zone à quel niveau, les donjons au bon moment). Clic droit : minage et forge (filons
+  utiles, tes minerais, recettes de forge qui font monter).
+- FILONS SUR LE TRAJET : avec le minage, les coins à filons qui te font monter et
+  demandent moins d'une minute de détour deviennent des étapes (validées en arrivant ;
+  menu … pour les couper).
 
 PRÉCISION : il apprend TON rythme en jouant
 - le temps que tu mets pour chaque monstre et chaque objet (« Zhévra : 25 s »), et pour
@@ -257,6 +271,9 @@ recalculer (et reprendre le guidage s'il était en pause).
 
 Commandes :
   /iti              afficher ou cacher la fenêtre
+  /iti soiree 1h30  ma soirée (ou 45, ou 23h ; /iti soiree stop pour arrêter)
+  /iti montee       ma montée : frise jusqu'au 60 (/iti minage : minage et forge)
+  /iti controle     contrôle en jeu de tout l'addon (compte rendu à copier)
   /iti pilote       pilote automatique : marche / arrêt
   /iti talents      plan de talents suivi et prochain point
   /iti barres       barres par posture, forme ou camouflage : ranger, annuler, voir
@@ -278,6 +295,8 @@ Commandes :
 EN CAS DE PROBLÈME
 ------------------
 
+Tape /iti controle : chaque partie de l'addon est vérifiée dans ton jeu, et le compte
+rendu (rapport complet compris) s'ouvre déjà sélectionné. Ou /iti rapport seul.
 Tape /iti rapport : une fenêtre s'ouvre avec tout ce qu'il faut (trajet, état de la
 flèche, équipement, mises à jour, erreurs d'Itinéraire et de Shortest Path), déjà
 sélectionné. Fais Ctrl+C, puis colle-le dans ton message à la personne qui t'a donné

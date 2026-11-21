@@ -25,6 +25,9 @@ tables change, voir `outils/donnees.py` : commits épinglés, empreintes SHA-256
   sorts, paliers, rangs) viennent de ForeverDB (https://foreverdb.net), extraits du client du jeu ; de même pour
   les postures, formes et camouflage exigés par les techniques de guerrier, druide et voleur (rangement des barres,
   `outils/postures.py`).
+- **Filons de minage** (`Montee.lua`) : la liste des identifiants d'objets « filon » (cuivre, étain, fer…) a été
+  établie à partir de la base de **QuestieDB** (GPL v3) ; leurs emplacements sont lus pendant le jeu dans Questie,
+  rien n'est copié. La frise et la région suivante lisent elles aussi la base de Questie pendant le jeu.
 - **Niveaux des zones** (`Data.lua`, trajet selon ton niveau) : plages publiées par warcraft.wiki (« Zones by level
   (original) »), telles que **Shortest Path Forever** les reprend (`Data/Zones.lua`, GPL v3).
 - **DungeonJournal** (ExehnTV, https://www.curseforge.com/wow/addons/dungeonjournal), tous droits réservés à son

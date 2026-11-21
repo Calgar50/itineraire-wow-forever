@@ -806,11 +806,20 @@ function Gear.ReadRecipes()
 	end
 	local cfg = Gear.Config()
 	local n = 0
+	-- Couleur de chaque recette (orange, jaune, vert, gris) : le plan de forge de « Ma montée » s'en sert.
+	cfg.recipeDiff = type(cfg.recipeDiff) == "table" and cfg.recipeDiff or {}
 	for _, id in ipairs(ids) do
 		local r = Call(T.GetRecipeInfo, id)
 		if type(r) == "table" and r.learned == true then
 			cfg.recipes[id] = true
 			n = n + 1
+			local diff = r.relativeDifficulty
+			if diff == nil then
+				diff = r.difficulty
+			end
+			if type(diff) == "number" or type(diff) == "string" then
+				cfg.recipeDiff[id] = diff
+			end
 		end
 	end
 	cfg.recipesAt = time and time() or 0

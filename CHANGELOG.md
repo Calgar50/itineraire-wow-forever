@@ -370,3 +370,28 @@ Notes techniques de chaque version (la plus récente en bas). Pour l'usage, voir
     « inutilisé 10 min » (elle ne passait presque jamais : vu le 21/11, aucune vérification depuis la veille) ;
     repli sur l'ancienne condition si Windows est trop ancien. `ns.INSTALLER_WANTED = 5`.
   - Tests : `zone_test.lua` ; `auto_layout_test.lua` avec un grimoire à onglets et la version 1 → 2. 29 tests.
+- v3.0.0 (21/11/2026) : soirée planifiée, région suivante, frise jusqu'au 60, filons et forge, contrôle en jeu.
+  - Soirée (`Planner.Soiree`, état `ItineraireCharDB.soiree` en heure réelle, survit à un /reload, oubliée 30 min
+    après la fin) : valeur de chaque quête = XP (rendu + 70 % des monstres) ; coût = temps gagné à la retirer du
+    trajet (`QuestValues`) ; voyage vers une zone (`ZoneEntries` : ce que le trajet gagne à n'y faire aucune étape,
+    moins les temps des quêtes) payé une fois par un groupe de quêtes de la zone (`SelectSoiree`, glouton par XP/s,
+    quête seule ou groupe d'une nouvelle zone). Niveaux de priorité : choisies 0, région suivante 0,55, auberge 0,6
+    (`TIER_INN`, pas « libre » face au « plus tard »), gardées pour après 0,75, trop dures 1. Auberge = aubergiste le
+    plus rapide depuis la dernière étape (4 comparés avec Shortest Path), ou la pierre de foyer si prête et plus
+    rapide (son tronçon = l'incantation). Trop long : on recommence avec moins de temps (3 essais). Pas de conseil de
+    pierre de foyer en route pendant une soirée. Bilan à l'arrivée à l'auberge ; quêtes rendues comptées.
+  - `Build` : `Reroute` (quêtes proposées sauf celles que la soirée laisse, arrêts, étapes en plus) ; 4e passe région
+    suivante + filons, 5e passe soirée ; chacune annulée proprement en cas d'erreur (`Optional`).
+  - `Data.QuestIndex` (toute la base : `QuestieDB.QuestPointers` + `QueryQuestSingle` ; ni répétables, ni métier, ni
+    donjon), construit en tâche de fond (`Montee.BuildIndex`). `Montee.Frise` : zone qui rapporte le plus à chaque
+    niveau (XP réduite selon l'écart, pas de quête grise, pas de zone trop haute), trous comblés « monstres,
+    donjons ». `Montee.NextRegionNeed` : journal presque fini (< 4 étapes ou < 20 min), région actuelle sans 3 quêtes
+    à prendre, zone avec au moins 4 quêtes disponibles (Questie), point = plus gros groupe de donneurs.
+  - Filons : 13 minerais (identifiants d'objets QuestieDB), couleurs Classic (orange < +25, jaune < +50, vert < +100),
+    coins de 2 emplacements ou plus à moins de 75 s de détour (3 au plus), validés après 6 s sur place.
+    Forge : recettes de Guildon Crafts qui font monter (couleur lue dans la fenêtre de forge si possible :
+    `Gear.ReadRecipes` garde `recipeDiff`).
+  - `Controle.lua` : 18 contrôles en jeu (lecture seule) + le rapport complet, dans la fenêtre à copier.
+  - `MonteeUI.lua` : fenêtre « Ma montée » (frise, soirée, minage et forge). Boutons parchemin et « Zzz » dans la
+    barre de titre (titre coupé si la fenêtre est étroite).
+  - Tests : `soiree_test.lua`, `montee_test.lua`. 31 tests.

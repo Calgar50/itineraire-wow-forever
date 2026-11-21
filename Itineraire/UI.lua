@@ -15,6 +15,9 @@ local ICONS = {
 	area = "Interface\\Icons\\INV_Misc_Map_01",
 	service = "Interface\\GossipFrame\\VendorGossipIcon",
 	trainer = "Interface\\GossipFrame\\TrainerGossipIcon",
+	inn = "Interface\\GossipFrame\\BinderGossipIcon",
+	region = "Interface\\GossipFrame\\TaxiGossipIcon",
+	mine = "Interface\\Icons\\Trade_Mining",
 }
 
 local BACKDROP = {
@@ -435,7 +438,9 @@ end
 
 local function StopIcon(s)
 	if s.kind == "service" then
-		return (s.service and s.service.kind == "trainer") and ICONS.trainer or ICONS.service
+		local kind = s.service and s.service.kind
+		return ICONS[kind == "trainer" and "trainer" or kind == "inn" and "inn" or kind == "region" and "region"
+			or kind == "mine" and "mine" or "service"]
 	end
 	if s.kind == "area" then
 		local t = s.tasks[1] and s.tasks[1].objective and s.tasks[1].objective.type
@@ -656,6 +661,28 @@ function UI.QuestMenu()
 	UI.ShowMenu(items)
 end
 
+-- Menu « Ma soirée » : combien de temps tu as.
+function UI.SoireeMenu()
+	local s = ns.SoireeActive and ns.SoireeActive()
+	local items = { { text = "Ma soirée : combien de temps as-tu ?", title = true } }
+	if s then
+		items[#items + 1] = { text = "En cours jusqu'à " .. date("%H:%M", s.fin) .. " : arrêter la soirée", func = function()
+			ns.SoireeStop("menu")
+		end }
+	end
+	for _, d in ipairs({ { 30, "30 min" }, { 45, "45 min" }, { 60, "1 h" }, { 90, "1 h 30" }, { 120, "2 h" }, { 180, "3 h" } }) do
+		items[#items + 1] = { text = (s and "Repartir pour " or "") .. d[2], func = function()
+			ns.SoireeStart(d[1])
+		end }
+	end
+	items[#items + 1] = { text = "Jusqu'à une heure précise : tape /iti soiree 23h", title = true }
+	items[#items + 1] = { text = "Le détail (auberge, niveau à la fin, quêtes gardées)…", func = function()
+		ns.MonteeUI.Toggle(true, "soiree")
+	end }
+	items[#items + 1] = { text = "Fermer" }
+	UI.ShowMenu(items)
+end
+
 local function OptionsMenu()
 	UI.ShowMenu({
 		{ text = "Itinéraire", title = true },
@@ -663,6 +690,32 @@ local function OptionsMenu()
 			text = "Réglages (tout-en-un : trajet, Questie, flèche)…",
 			func = function()
 				ns.Options.Toggle(true, "trajet")
+			end,
+		},
+		{
+			text = "Ma soirée : le temps que tu as, puis une auberge…",
+			func = function()
+				UI.SoireeMenu()
+			end,
+		},
+		{
+			text = "Ma montée : frise jusqu'au niveau 60, minage et forge…",
+			func = function()
+				ns.MonteeUI.Toggle(true, "frise")
+			end,
+		},
+		{
+			text = "Filons de minage sur le trajet (petits détours)",
+			checked = ns.db.includeMining ~= false,
+			func = function()
+				ns.db.includeMining = ns.db.includeMining == false
+				ns.RequestPlan("option", 0)
+			end,
+		},
+		{
+			text = "Contrôle en jeu : tout vérifier (compte rendu à copier)…",
+			func = function()
+				ns.Controle.Show()
 			end,
 		},
 		{
@@ -951,6 +1004,10 @@ local HEADER_BUTTONS = {
 		tip = "Tes améliorations (récompenses, vendeurs, butins de donjon, métiers), « Quel donjon faire ? » et « Y aller »." },
 	{ key = "journal", icon = "Interface\\Icons\\INV_Misc_Book_09", title = "Journal des donjons", rightClick = true,
 		tip = "Ouvre DungeonJournal (d'ExehnTV) sur le donjon où tu es, sinon sur le prochain donjon de ton trajet. Clic droit : choisir un donjon de ton niveau." },
+	{ key = "montee", icon = "Interface\\Icons\\INV_Scroll_03", title = "Ma montée", rightClick = true,
+		tip = "La frise jusqu'au niveau 60 (quelle zone à quel niveau, donjons au bon moment). Clic droit : minage et forge." },
+	{ key = "soiree", icon = "Interface\\Icons\\Spell_Nature_Sleep", title = "Ma soirée", rightClick = true,
+		tip = "Dis combien de temps tu as : les quêtes qui rapportent le plus d'XP dans ce temps, puis une auberge (repos). Le reste du journal passe après, rien n'est écarté. Bordure verte = soirée en cours. Clic droit : le détail." },
 	{ key = "pilote", icon = "Interface\\Icons\\Ability_Hunter_Pathfinding", title = "Pilote automatique",
 		tip = "Bordure verte = actif : il prend et rend les quêtes, prend le vol prévu, passe les cinématiques, répare et vend les objets gris, apprend tes techniques. MAJ en parlant à un PNJ : tu reprends la main. Clic : marche / arrêt." },
 }
@@ -1025,6 +1082,24 @@ function UI.Create()
 			end
 			ns.Pilote.SetOn(not ns.Pilote.Config().on)
 		end,
+		montee = function(_, mouse)
+			if ns.monteeUIMissing then
+				ns.Print("« Ma montée » arrive avec de nouveaux fichiers : quitte et relance complètement WoW.")
+				return
+			end
+			ns.MonteeUI.Toggle(nil, mouse == "RightButton" and "metiers" or "frise")
+		end,
+		soiree = function(_, mouse)
+			if ns.monteeUIMissing then
+				ns.Print("la soirée arrive avec de nouveaux fichiers : quitte et relance complètement WoW.")
+				return
+			end
+			if mouse == "RightButton" then
+				ns.MonteeUI.Toggle(true, "soiree")
+			else
+				UI.SoireeMenu()
+			end
+		end,
 	}
 	local prev = close
 	for _, def in ipairs(HEADER_BUTTONS) do
@@ -1035,6 +1110,11 @@ function UI.Create()
 		b:SetPoint("RIGHT", prev, "LEFT", prev == close and -2 or -4, 0)
 		buttons[def.key] = b
 		prev = b
+	end
+	-- Titre : coupé (« Itinér… ») plutôt que caché sous les boutons quand la fenêtre est étroite.
+	titleText:SetPoint("RIGHT", prev, "LEFT", -4, 0)
+	if titleText.SetWordWrap then
+		titleText:SetWordWrap(false)
 	end
 
 	summary = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -1263,6 +1343,21 @@ end
 local function AdviceText(plan)
 	local lines = {}
 	local side = plan.side
+	local so = plan.soiree
+	if so then
+		lines[#lines + 1] = string.format("|cffb48cffSoirée|r : %d quête(s) ce soir (le plus d'XP par minute)%s. Le reste passe après : rien n'est écarté.",
+			so.chosen or 0, so.inn and (", puis " .. (so.inn.hearth and "pierre de foyer vers " or "l'auberge, ") .. tostring(so.inn.name)) or "")
+	end
+	local mines = {}
+	for _, s in ipairs(plan.order or {}) do
+		if s.kind == "service" and s.service and s.service.kind == "mine" then
+			mines[#mines + 1] = tostring(s.number)
+		end
+	end
+	if #mines > 0 then
+		lines[#lines + 1] = "|cffffd100Minage|r : coin(s) à filons à l'étape " .. table.concat(mines, ", ")
+			.. " (petit détour ; l'étape se valide en arrivant)."
+	end
 	if (plan.laterCount or 0) > 0 then
 		lines[#lines + 1] = "|cffff7777" .. plan.laterCount .. " étape(s) en fin de trajet|r : quêtes trop dures ou zones trop hautes pour ton niveau, gardées pour plus tard."
 	end
@@ -1344,10 +1439,20 @@ function UI.Refresh(plan)
 		if plan.xp and plan.xp > 0 then
 			text = text .. " · ~" .. Thousands(plan.xp) .. " XP"
 		end
-		if plan.levelEnd and plan.level and plan.levelEnd >= plan.level + 0.05 then
+		local so = plan.soiree
+		if so then
+			-- Soirée : la fin (auberge), l'heure et le niveau à ce moment-là ; le reste du journal vient après.
+			local at = Clock(plan, so.endEta)
+			text = "|cffb48cffSoirée|r" .. (so.innStep and (" · auberge à l'étape " .. so.innStep) or "")
+				.. (at and (" vers " .. at) or "") .. " · niv " .. (string.format("%.1f", so.levelEnd or plan.level):gsub("%.", ","))
+				.. ((so.afterCount or 0) > 0 and (" · puis " .. so.afterCount .. " étape(s) après la soirée") or "")
+		elseif plan.levelEnd and plan.level and plan.levelEnd >= plan.level + 0.05 then
 			text = text .. " · niv " .. string.format("%.1f", plan.levelEnd):gsub("%.", ",") .. " à la fin"
 		end
 		summary:SetText(text)
+	end
+	if buttons.soiree then
+		buttons.soiree:SetActive(ns.SoireeActive and ns.SoireeActive() ~= nil)
 	end
 	local page = UI.PageSize()
 	local offset = math.max(0, math.min(ns.session.scroll or 0, #order - page))
@@ -1392,7 +1497,9 @@ function UI.Refresh(plan)
 		if s.hearth then
 			sub = sub .. " · |cffffd100pierre de foyer|r"
 		end
-		if s.away then
+		if s.afterSoiree then
+			sub = sub .. " · |cff999999après la soirée|r"
+		elseif s.away then
 			sub = sub .. " · |cff999999après la région|r"
 		end
 		if s.lateWhy then

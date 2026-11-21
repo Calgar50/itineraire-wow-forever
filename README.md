@@ -15,6 +15,26 @@ Il ne suit pas un guide figé : le trajet se recalcule à chaque quête prise, r
   journal qui ne se fait ou ne se rend que là passe en fin de trajet, avec la raison. Option « finir la région d'abord », avec les quêtes
   à prendre de la région. Quêtes proposées sur le trajet et suites de quêtes (jamais celles d'une autre classe
   ou d'une autre race). Donjons, réparer / vendre, maître de classe, pierre de foyer.
+- **Ma soirée** (bouton « Zzz », ou `/iti soiree 1h30`, `/iti soiree 23h`) : tu dis combien de temps tu as.
+  Itinéraire garde les quêtes qui rapportent le plus d'XP par minute dans ce temps (une zone lointaine compte son
+  voyage, payé une fois par ses quêtes) et finit le trajet dans une **auberge**, où ton repos monte 4 fois plus vite
+  qu'en pleine nature ; si ta pierre de foyer est prête à la fin et fait gagner du temps, c'est elle qui t'y emmène.
+  Le reste du journal passe après l'auberge (« après la soirée ») : aucune quête n'est écartée. Arrivé à l'auberge :
+  le bilan de la soirée (niveau, quêtes rendues).
+- **La suite après la région** : quand ton journal se vide (moins de 4 étapes ou de 20 minutes), une étape
+  « Nouvelle région » t'emmène dans la zone de ton niveau qui a le plus de quêtes à prendre (au moins 4, pas dans
+  une zone trop haute), au point où leurs donneurs se regroupent. Sur place, le mode région prend le relais.
+- **Ma montée** (bouton parchemin, ou `/iti montee`) : la **frise jusqu'au niveau 60**, zone par zone, à partir des
+  quêtes de la base Questie faisables par ta classe et ta race et pas encore faites, avec les **donjons** au bon moment
+  (estimation : les suites de quêtes sont comptées comme ouvertes, l'XP des monstres n'est pas comptée). Onglet
+  **Minage et forge** : les filons qui te font monter (orange, jaune ; vert parfois), tes minerais et barres, les
+  recettes de forge qui font monter et ce qu'elles demandent (couleurs exactes une fois ta fenêtre de forge ouverte).
+- **Les filons sur le trajet** : avec le minage, les coins à filons utiles (2 emplacements ou plus) qui demandent moins
+  de ~75 secondes de détour dans la première demi-heure du trajet deviennent des étapes (3 au plus). Un filon n'est
+  pas toujours là : l'étape se valide en arrivant. Menu … pour couper.
+- **Contrôle en jeu** (`/iti controle`) : chaque partie de l'addon est vérifiée pour de vrai dans ton jeu (Questie,
+  Shortest Path, trajet, niveau de ta zone, pierre de foyer, talents, équipement, barres, pilote, DungeonJournal,
+  métiers, mise à jour automatique) ; le compte rendu, rapport complet compris, est prêt à copier-coller.
 - **Le bandeau** au-dessus de la flèche : l'étape en cours, le temps restant, l'étape d'après.
 - **Ton rythme** : il apprend en jouant le temps que tu mets par monstre, par objet et par zone, et affiche des
   fourchettes de temps qui se resserrent.
@@ -125,6 +145,9 @@ suffit pour qu'elle le laisse tranquille).
 | Commande | Effet |
 | --- | --- |
 | `/iti` | afficher ou cacher la fenêtre |
+| `/iti soiree [1h30 \| 45 \| 23h \| stop]` | ma soirée : le temps que tu as (ou jusqu'à quelle heure), puis une auberge |
+| `/iti montee` | ma montée : la frise jusqu'au niveau 60 (`/iti minage` : minage et forge) |
+| `/iti controle` | contrôle en jeu de tout l'addon, compte rendu à copier |
 | `/iti pilote` | pilote automatique : marche / arrêt |
 | `/iti talents` | plan de talents suivi et prochain point (et la question, s'il y a un point à mettre) |
 | `/iti equipement` | la fenêtre Équipement |

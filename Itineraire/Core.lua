@@ -38,6 +38,19 @@ if not ns.DJ then
 	ns.djMissing = true
 	ns.DJ = Shell()
 end
+-- Montee.lua, MonteeUI.lua, Controle.lua : nouveaux en 3.0.0 (frise, région suivante, filons, soirée, contrôle).
+if not ns.Montee then
+	ns.monteeMissing = true
+	ns.Montee = Shell()
+end
+if not ns.MonteeUI then
+	ns.monteeUIMissing = true
+	ns.MonteeUI = Shell()
+end
+if not ns.Controle then
+	ns.controleMissing = true
+	ns.Controle = Shell()
+end
 
 -- Dépôt public d'Itinéraire (paquet, installateur, nouveautés).
 ns.HOME = "github.com/Calgar50/itineraire-wow-forever"
@@ -45,6 +58,12 @@ ns.HOME = "github.com/Calgar50/itineraire-wow-forever"
 ns.INSTALLER_WANTED = 5
 -- Nouveautés affichées une fois après une mise à jour (pas de flèches Unicode : police du jeu incertaine).
 ns.NEWS = {
+	["3.0.0"] = {
+		"MA SOIRÉE : dis combien de temps tu as (bouton « Zzz » en haut de la fenêtre, ou /iti soiree 1h30, /iti soiree 23h). Itinéraire garde les quêtes qui rapportent le plus d'XP dans ce temps et finit le trajet dans une auberge (repos 4 fois plus rapide ; la pierre de foyer t'y emmène si elle est prête). Le reste du journal passe après : aucune quête n'est écartée.",
+		"LA SUITE APRÈS LA RÉGION : quand ton journal se vide, une étape « Nouvelle région » t'emmène dans la zone de ton niveau qui a le plus de quêtes à prendre. Et la FRISE jusqu'au niveau 60 (bouton PARCHEMIN, ou /iti montee) : quelle zone à quel niveau, avec les donjons au bon moment.",
+		"MINAGE ET FORGE : les coins à filons qui te font monter (orange, jaune) s'ajoutent au trajet quand ils demandent moins de ~1 min de détour (menu … pour couper). Onglet « Minage et forge » : tes filons utiles, tes minerais, les recettes de forge qui font monter et ce qu'elles demandent.",
+		"CONTRÔLE EN JEU : /iti controle vérifie pour de vrai chaque partie de l'addon (API de Forever, Shortest Path, talents, équipement, barres, pilote, DungeonJournal, métiers, mises à jour) et prépare un compte rendu à copier-coller.",
+	},
 	["2.8.0"] = {
 		"Barres d'action : le rangement par posture, forme ou camouflage se fait TOUT SEUL (plus de question), puis il est entretenu. Il est refait une fois maintenant : les versions précédentes ne lisaient qu'un onglet du grimoire (Armes), et Vengeance, Cri de guerre, Désarmement… manquaient ou partaient sur la barre du dessus. /iti barres annuler pour revenir, /iti barres non pour ne plus ranger.",
 		"Trajet selon ton niveau : une zone dont le plus bas niveau est 4 au-dessus du tien (comme le réglage de Shortest Path) n'est plus proposée : ni quête à prendre, ni marchand, ni maître, ni auberge là-bas. Une quête de ton journal qui ne se fait (ou ne se rend) que là passe à la fin du trajet, avec la raison (« zone niveau 30-40 : Désolace ») ; aucune n'est écartée.",
@@ -119,6 +138,7 @@ local DEFAULT_DB = {
 	useHearth = true, -- conseils pierre de foyer
 	groupShare = false, -- partage du trajet avec le groupe (2 à 5 joueurs)
 	regionMode = true, -- finir la région où tu es (avec ses quêtes à prendre) avant d'en sortir
+	includeMining = true, -- coins à filons qui font monter le minage, à moins de ~1 min de détour
 	maxStops = 40,
 }
 local DEFAULT_CHAR = {}
@@ -404,6 +424,22 @@ function ns.TrackTravel()
 	end
 	local d = ns.Geo.Yards(ns.Geo.Player(), s)
 	local near = d and d <= math.max(s.radius or 0, 25)
+	-- Étapes qui se valident en arrivant : un coin à filons (après quelques secondes sur place : le temps de miner),
+	-- l'auberge de fin de soirée (bilan).
+	local service = s.kind == "service" and s.service
+	if near and service and (service.kind == "mine" or service.kind == "inn") then
+		if not ns.session.arrival or ns.session.arrival.key ~= s.key then
+			ns.session.arrival = { key = s.key, at = GetTime() }
+		elseif GetTime() - ns.session.arrival.at >= (service.kind == "mine" and 6 or 2) then
+			ns.session.arrival = nil
+			if service.kind == "inn" then
+				ns.SoireeEnd()
+			else
+				ns.SkipStop(s.key)
+			end
+			return
+		end
+	end
 	if not trip or trip.key ~= s.key then
 		-- Le facteur utilisé pour cette prévision (celui de la zone d'arrivée), pour en retrouver la mesure brute.
 		trip = { key = s.key, start = GetTime(), predicted = s.legModel or s.leg, walk = s.legWalk, away = not near,
@@ -556,6 +592,9 @@ local function Options()
 		includeDungeons = ns.db.includeDungeons,
 		includePickups = ns.db.includePickups,
 		includeServices = ns.db.includeServices,
+		includeMining = ns.db.includeMining ~= false,
+		soiree = ns.SoireeOptions(),
+		prevSoiree = ns.plan and ns.plan.soireeIds or nil,
 		serviceDoneAt = ns.session.serviceDoneAt,
 		focus = ns.session.focus,
 		rates = ns.Rates(),
@@ -806,6 +845,142 @@ function ns.ResetChoices()
 	ns.RequestPlan("reset", 0)
 end
 
+-------------------------------------------------------------------------------
+-- Soirée planifiée (« j'ai 1 h 30 ») : gardée par personnage (heure réelle), elle survit à un /reload
+-------------------------------------------------------------------------------
+local SOIREE_FORGET = 1800 -- une soirée finie depuis 30 min (et pas à l'auberge) est oubliée
+
+local function Clock(t)
+	return date("%H:%M", math.floor(t))
+end
+
+local function XPState()
+	local xp = UnitXP and UnitXP("player")
+	local max = UnitXPMax and UnitXPMax("player")
+	local function Plain(v)
+		if type(v) ~= "number" or (issecretvalue and issecretvalue(v)) then
+			return 0
+		end
+		return v
+	end
+	return UnitLevel("player") or 1, Plain(xp), Plain(max)
+end
+
+function ns.SoireeActive()
+	local s = ns.char and ns.char.soiree
+	if type(s) ~= "table" or type(s.fin) ~= "number" then
+		return nil
+	end
+	if time() > s.fin + SOIREE_FORGET then
+		ns.char.soiree = nil
+		return nil
+	end
+	return s
+end
+
+-- Ce que le calcul du trajet reçoit : le temps qu'il reste (0 si l'heure est passée : direction l'auberge).
+function ns.SoireeOptions()
+	local s = ns.SoireeActive()
+	if not s then
+		return nil
+	end
+	return { left = math.max(0, s.fin - time()), untilAt = s.fin, minutes = s.minutes }
+end
+
+-- `minutes` (10 à 360) à partir de maintenant, ou `untilAt` (heure réelle) si donné.
+function ns.SoireeStart(minutes, untilAt)
+	local now = time()
+	if untilAt then
+		minutes = math.floor((untilAt - now) / 60 + 0.5)
+	end
+	minutes = math.max(10, math.min(360, math.floor(tonumber(minutes) or 90)))
+	local level, xp, max = XPState()
+	ns.char.soiree = { debut = now, fin = untilAt or (now + minutes * 60), minutes = minutes, niveau = level, xp = xp,
+		xpMax = max, rendues = 0 }
+	ns.Print(string.format("soirée jusqu'à %s (%s) : les quêtes qui rapportent le plus d'XP d'abord, puis une auberge. "
+		.. "Le reste de ton journal passe après (rien n'est écarté). |cff888888/iti soiree stop pour arrêter.|r",
+		Clock(ns.char.soiree.fin), ns.MonteeUI.Minutes and ns.MonteeUI.Minutes(minutes * 60) or (minutes .. " min")))
+	ns.SetPaused(false)
+	ns.RequestPlan("soirée", 0)
+end
+
+function ns.SoireeStop(why)
+	if not ns.SoireeActive() then
+		ns.Print("pas de soirée en cours.")
+		return
+	end
+	ns.char.soiree = nil
+	ns.Print("soirée arrêtée : retour au trajet complet.")
+	ns.RequestPlan("soirée", 0)
+end
+
+-- Arrivé à l'auberge de fin de soirée : le bilan, puis retour au trajet complet (pour la prochaine fois).
+function ns.SoireeEnd()
+	local s = ns.SoireeActive()
+	if not s then
+		return
+	end
+	local level, xp, max = XPState()
+	local before = s.niveau and string.format("niveau %d (%d %%)", s.niveau, (s.xpMax or 0) > 0 and math.floor((s.xp or 0) / s.xpMax * 100) or 0) or "?"
+	local now = string.format("niveau %d (%d %%)", level, max > 0 and math.floor(xp / max * 100) or 0)
+	ns.char.soiree = nil
+	ns.Print(string.format("|cffb48cfffin de soirée|r : tu es à l'auberge, déconnecte-toi ici (repos). Ce soir : %s -> %s, %d quête(s) rendue(s). Bonne nuit !",
+		before, now, s.rendues or 0))
+	ns.RequestPlan("soirée", 1)
+end
+
+-- Toutes les 5 s : le temps passe, la sélection de la soirée suit (un calcul toutes les 5 min au plus) ; l'heure
+-- venue, une fois : direction l'auberge.
+local SOIREE_REFRESH = 300
+function ns.SoireeTick()
+	local s = ns.SoireeActive()
+	if not s or not ns.ready or ns.session.paused then
+		return
+	end
+	if time() >= s.fin and not s.prevenu then
+		s.prevenu = true
+		ns.Print("|cffb48cffc'est l'heure|r : ta soirée est finie, direction l'auberge (le trajet y va d'abord).")
+		ns.RequestPlan("soirée", 0)
+	elseif ns.planAt and GetTime() - ns.planAt >= SOIREE_REFRESH then
+		ns.RequestPlan("soirée", 0)
+	end
+end
+
+-- « 90 », « 45min », « 1h30 », « 2h » : une durée ; « 23h », « 22h30 », « 23:15 », « à 23h » : jusqu'à cette heure.
+-- Rend minutes, untilAt (l'un des deux) ou nil.
+function ns.ParseSoiree(arg)
+	-- (« à » retiré avant lower() : selon la locale, lower() et %s touchent aux octets d'un caractère accentué)
+	arg = tostring(arg or ""):gsub("^%s*\195\160", ""):gsub("^%s*[aA]%s", "")
+	arg = arg:lower():gsub("%s+", "")
+	local h, m = arg:match("^(%d+)[h:](%d*)$")
+	if h then
+		h, m = tonumber(h), tonumber(m ~= "" and m or "0")
+		if not (h and m) or m >= 60 then
+			return nil
+		end
+		local clock = arg:find(":") or h >= 7
+		if not clock then
+			return h * 60 + m, nil
+		end
+		if h > 23 then
+			return nil
+		end
+		local now = time()
+		local t = date("*t", now)
+		t.hour, t.min, t.sec = h, m, 0
+		local at = time(t)
+		if at <= now then
+			at = at + 86400 -- (demain)
+		end
+		return nil, at
+	end
+	local n = tonumber(arg:match("^(%d+)m?i?n?$") or "")
+	if n then
+		return n, nil
+	end
+	return nil
+end
+
 -- Addons qui guident aussi (ils se disputeraient la flèche) ou inutiles ici : désactivés automatiquement.
 local CONFLICTS = {
 	"RXPGuides", "AdventureGuideForever", "Polestar", "Guidelime", "ForeverWisp", "QuestTrail",
@@ -975,7 +1150,7 @@ function ns.CheckVersions()
 	end
 	if ns.gearMissing then
 		ns.Print("nouveaux fichiers dans cette version : |cffffff00quitte et relance complètement WoW|r pour avoir l'équipement.")
-	elseif ns.djMissing or ns.autoMissing then
+	elseif ns.djMissing or ns.autoMissing or ns.monteeMissing or ns.monteeUIMissing or ns.controleMissing then
 		ns.Print("nouveau fichier dans cette version : |cffffff00quitte et relance complètement WoW|r (un /reload ne suffit pas).")
 	end
 end
@@ -1023,7 +1198,10 @@ local function WaitForQuestie()
 				ns.AutoResume()
 				ns.Guide.Flush() -- trajet mis de côté (combat, recherche de Shortest Path en cours)
 				ns.UI.SetStatus(ns.StatusText())
+				pcall(ns.SoireeTick)
 			end)
+			-- Frise et région suivante : la base de quêtes est indexée tranquillement après la connexion.
+			pcall(ns.Montee.Init)
 			ns.RequestPlan("login", 0.5)
 			-- 1re fois : l'assistant de départ (solo/groupe, région, rendus auto, fenêtre).
 			C_Timer.After(4, function()
@@ -1174,6 +1352,10 @@ events:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
 	elseif event == "QUEST_ACCEPTED" or event == "QUEST_REMOVED" then
 		ns.RequestPlan(event, 0.5)
 	elseif event == "QUEST_TURNED_IN" then
+		local soiree = ns.SoireeActive()
+		if soiree then
+			soiree.rendues = (soiree.rendues or 0) + 1
+		end
 		ns.RequestPlan(event, 0.3)
 	elseif event == "PLAYER_LEVEL_UP" or event == "ZONE_CHANGED_NEW_AREA" then
 		ns.RequestPlan(event, 2)
@@ -1374,6 +1556,16 @@ function ns.ReportText()
 		.. " · pause " .. (ns.session.paused and tostring(ns.session.pauseWhy or "oui") or "non")
 		.. " · quête suivie " .. tostring(ns.session.focus or "aucune")
 		.. " · étape forcée " .. tostring(ns.session.pinned or "aucune"))
+	local soiree = ns.SoireeActive()
+	local so = plan and plan.soiree
+	Add("Soirée : " .. (soiree and (string.format("jusqu'à %s", date("%H:%M", soiree.fin))
+		.. (so and string.format(" · %d quête(s) · fin à l'étape %s · %d étape(s) après", so.chosen or 0, tostring(so.innStep or "?"),
+			so.afterCount or 0) or " · pas appliquée")) or "aucune"))
+	local okM, state, count, zones = pcall(ns.Montee.IndexState)
+	local mining, forge = ns.Montee.Skill(186), ns.Montee.Skill(164)
+	Add("Montée : base " .. tostring(okM and state or "?") .. (count and (" (" .. count .. " quêtes, " .. tostring(zones) .. " zones)") or "")
+		.. " · minage " .. (mining and (mining.rank .. "/" .. mining.max) or "non") .. " · forge "
+		.. (forge and (forge.rank .. "/" .. forge.max) or "non") .. " · filons " .. OnOff(ns.db.includeMining ~= false))
 	Add("Options : région " .. OnOff(ns.db.regionMode ~= false) .. " · propositions " .. OnOff(ns.db.includePickups)
 		.. " · donjons " .. OnOff(ns.db.includeDungeons) .. " · réparer " .. OnOff(ns.db.includeServices ~= false)
 		.. " · maître " .. OnOff(ns.db.includeTrainer ~= false) .. " · foyer " .. OnOff(ns.db.useHearth ~= false)
@@ -1402,7 +1594,7 @@ function ns.ReportText()
 		for k = 1, math.min(#plan.order, 15) do
 			local s = plan.order[k]
 			local flags = {}
-			for _, f in ipairs({ "legExact", "away", "promoted", "hearth", "focus" }) do
+			for _, f in ipairs({ "legExact", "away", "promoted", "hearth", "focus", "afterSoiree" }) do
 				if s[f] then
 					flags[#flags + 1] = f
 				end
@@ -1579,6 +1771,37 @@ SlashCmdList.ITINERAIRE = function(msg)
 		else
 			ns.Auto.BarsCommand(msg:match("^barres?%s+(%S+)"))
 		end
+	elseif msg == "soiree" or msg == "soirée" or msg:match("^soir[ée]e%s") then
+		local arg = msg:match("^soir[ée]e%s+(.+)$")
+		if not arg then
+			if ns.monteeUIMissing then
+				ns.Print("la soirée arrive avec de nouveaux fichiers : quitte et relance complètement WoW.")
+			else
+				ns.MonteeUI.Toggle(true, "soiree")
+			end
+		elseif arg == "stop" or arg == "fin" or arg == "arret" or arg == "arrêt" or arg == "off" then
+			ns.SoireeStop("commande")
+		else
+			local minutes, untilAt = ns.ParseSoiree(arg)
+			if minutes or untilAt then
+				ns.SoireeStart(minutes, untilAt)
+			else
+				ns.Print("soirée : « /iti soiree 1h30 », « /iti soiree 45 » (minutes) ou « /iti soiree 23h » (jusqu'à 23 h) ; « /iti soiree stop » pour arrêter.")
+			end
+		end
+	elseif msg == "montee" or msg == "montée" or msg == "frise" or msg == "minage" or msg == "forge" or msg == "metiers"
+		or msg == "métiers" then
+		if ns.monteeUIMissing then
+			ns.Print("« Ma montée » arrive avec de nouveaux fichiers : quitte et relance complètement WoW.")
+		else
+			ns.MonteeUI.Toggle(true, (msg == "minage" or msg == "forge" or msg:find("tiers")) and "metiers" or "frise")
+		end
+	elseif msg == "controle" or msg == "contrôle" or msg == "test" or msg == "verifier" or msg == "vérifier" then
+		if ns.controleMissing then
+			ns.Print("le contrôle arrive avec un nouveau fichier : quitte et relance complètement WoW.")
+		else
+			ns.Controle.Show()
+		end
 	elseif msg == "dj" or msg:match("^dj ") or msg == "journal" then
 		if ns.djMissing then
 			ns.Print("DungeonJournal arrive avec un nouveau fichier d'Itinéraire : quitte et relance complètement WoW.")
@@ -1598,7 +1821,7 @@ SlashCmdList.ITINERAIRE = function(msg)
 			end
 		end
 	else
-		ns.Print("/iti (fenêtre) · /iti pilote · /iti talents · /iti barres · /iti equipement · /iti dj [donjon] · /iti reglages · /iti assistant · /iti rapport · /iti bandeau · /iti r (recalculer) · /iti rendus · /iti reset · /iti rythme · /iti groupe · /iti donjons · /iti etat · /iti version · /iti stop · /iti debug")
+		ns.Print("/iti (fenêtre) · /iti soiree [1h30 | 23h | stop] · /iti montee (frise jusqu'au 60) · /iti minage · /iti controle · /iti pilote · /iti talents · /iti barres · /iti equipement · /iti dj [donjon] · /iti reglages · /iti assistant · /iti rapport · /iti bandeau · /iti r (recalculer) · /iti rendus · /iti reset · /iti rythme · /iti groupe · /iti donjons · /iti etat · /iti version · /iti stop · /iti debug")
 	end
 end
 

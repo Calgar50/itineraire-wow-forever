@@ -62,6 +62,13 @@ local function KillXP(level, mobLevel)
 	end
 	return base * (1 - (level - mobLevel) / ZeroDiff(level))
 end
+-- (repris par Montee.lua : frise de montée)
+Planner.NEXT_XP, Planner.GrayLevel, Planner.KillXP = NEXT_XP, GrayLevel, KillXP
+
+-- Soirée planifiée (« j'ai 1 h 30 ») : l'auberge où finir, puis ce qui est gardé pour la soirée suivante.
+-- Région suivante (journal presque fini) : après le journal, avant l'auberge.
+local TIER_NEXT, TIER_INN, TIER_AFTER = 0.55, 0.6, 0.75
+Planner.TIER_NEXT, Planner.TIER_INN, Planner.TIER_AFTER = TIER_NEXT, TIER_INN, TIER_AFTER
 
 local function Phase(q)
 	if q.candidate and q.chainOf then
@@ -860,7 +867,9 @@ local function Precedence(stops, region)
 	-- Une étape avancée reste libre face aux étapes « plus tard » : elle peut s'y joindre si c'est plus court.
 	for i, a in ipairs(stops) do
 		for j, b in ipairs(stops) do
-			local free = a.promoted or a.candidate or (a.kind == "service" and not a.service.urgent)
+			-- (l'auberge de fin de soirée et la région suivante restent avant ce qui est trop dur pour l'instant)
+			local free = a.promoted or a.candidate or (a.kind == "service" and not a.service.urgent
+				and a.service.kind ~= "inn" and a.service.kind ~= "region")
 			if a.tier < b.tier and not (free and b.tier == TIER_LATER) then
 				before[#before + 1] = { i, j, true }
 			end
@@ -1735,8 +1744,8 @@ local function ServiceStop(need)
 	s.service = need
 	s.npc = need.point.npc
 	s.npcName = need.point.name
-	s.radius = need.kind == "gear" and 30 or 8
-	s.tier = need.urgent and (TIER_FOCUS - 1) or TIER_NOW
+	s.radius = need.radius or (need.kind == "gear" and 30 or 8)
+	s.tier = need.tier or (need.urgent and (TIER_FOCUS - 1) or TIER_NOW)
 	s.work = need.work or 60
 	return s
 end
@@ -1946,6 +1955,59 @@ function Planner.Build(opts, yield)
 	local personal = not opts.groupMode
 	local cands, errands = {}, {}
 	local base = { stops = stops, order = order, C = C, cost = cost }
+	local keptCands = false
+	-- Recalcule le trajet avec les quêtes proposées (si `withCands`, sauf celles que la soirée laisse de côté), les
+	-- arrêts (réparer, maître, équipement) et des étapes en plus (`list` : région suivante, filons, auberge).
+	-- Gardé seulement s'il respecte toutes les contraintes ; rend alors { stops, order, C, cost }.
+	local function Reroute(withCands, list)
+		local o, t, d = {}, {}, {}
+		for _, x in ipairs(objTasks) do
+			o[#o + 1] = x
+		end
+		for _, x in ipairs(turnins) do
+			t[#t + 1] = x
+		end
+		for _, x in ipairs(dungeonTasks) do
+			d[#d + 1] = x
+		end
+		local service = errands[1]
+		local extra = { stops = {}, deadline = service and service.deadline }
+		local previousSet = plan.candidateSet
+		plan.candidateSet = {}
+		if withCands then
+			local kept = {}
+			for _, c in ipairs(cands) do
+				if not c.dropped then
+					kept[#kept + 1] = c
+					for _, x in ipairs(c.tasks) do
+						o[#o + 1] = x
+					end
+					for _, x in ipairs(c.dungeonTasks or {}) do
+						d[#d + 1] = x
+					end
+					t[#t + 1] = c.turnin
+					plan.candidateSet[c.q.id] = true
+				end
+			end
+			for _, s in ipairs(CandidatePickups(kept)) do
+				extra.stops[#extra.stops + 1] = s
+			end
+		end
+		for _, errand in ipairs(errands) do
+			extra.stops[#extra.stops + 1] = ServiceStop(errand)
+		end
+		for _, need in ipairs(list or {}) do
+			extra.stops[#extra.stops + 1] = ServiceStop(need)
+		end
+		local stops3, order3, C3, cost3, used3, before3 = Route(opts, plan, o, t, d, yield, extra)
+		used = used + used3
+		if #stops3 > 0 and #order3 == #stops3 and Respects(order3, before3) then
+			stops, order, C, cost = stops3, order3, C3, cost3
+			return { stops = stops3, order = order3, C = C3, cost = cost3 }
+		end
+		plan.candidateSet = previousSet
+		return nil
+	end
 	local ok = Optional(plan, "propositions et arrêts", function()
 		if personal and opts.includePickups and not opts.turninOnly then
 			cands = Planner.SelectCandidates(opts, plan, stops, order, C, yield)
@@ -1969,43 +2031,10 @@ function Planner.Build(opts, yield)
 		end
 		local service = errands[1]
 		local function Third(withCands)
-			local o, t, d = {}, {}, {}
-			for _, x in ipairs(objTasks) do
-				o[#o + 1] = x
-			end
-			for _, x in ipairs(turnins) do
-				t[#t + 1] = x
-			end
-			for _, x in ipairs(dungeonTasks) do
-				d[#d + 1] = x
-			end
-			local extra = { stops = {}, deadline = service and service.deadline }
-			plan.candidateSet = {}
-			if withCands then
-				for _, c in ipairs(cands) do
-					for _, x in ipairs(c.tasks) do
-						o[#o + 1] = x
-					end
-					for _, x in ipairs(c.dungeonTasks or {}) do
-						d[#d + 1] = x
-					end
-					t[#t + 1] = c.turnin
-					plan.candidateSet[c.q.id] = true
-				end
-				for _, s in ipairs(CandidatePickups(cands)) do
-					extra.stops[#extra.stops + 1] = s
-				end
-			end
-			for _, errand in ipairs(errands) do
-				extra.stops[#extra.stops + 1] = ServiceStop(errand)
-			end
-			local stops3, order3, C3, cost3, used3, before3 = Route(opts, plan, o, t, d, yield, extra)
-			used = used + used3
-			if #stops3 > 0 and #order3 == #stops3 and Respects(order3, before3) then
-				stops, order, C, cost = stops3, order3, C3, cost3
+			if Reroute(withCands, {}) then
+				keptCands = withCands
 				return true
 			end
-			plan.candidateSet = nil
 			return false
 		end
 		if #cands > 0 or service then
@@ -2017,7 +2046,56 @@ function Planner.Build(opts, yield)
 	if not ok then
 		-- erreur : on revient au trajet d'avant les propositions
 		stops, order, C, cost = base.stops, base.order, base.C, base.cost
-		plan.candidateSet, cands = nil, {}
+		plan.candidateSet, cands, errands, keptCands = nil, {}, {}, false
+	end
+	-- 4e passe : la région suivante (journal presque fini) et les filons de minage à deux pas du trajet.
+	local needs = {}
+	if personal and not opts.turninOnly then
+		local before4 = { stops = stops, order = order, C = C, cost = cost, set = plan.candidateSet }
+		local ok4 = Optional(plan, "région suivante et filons", function()
+			local Montee = ns.Montee
+			local list = {}
+			local region = Montee and opts.includePickups and opts.regionMode ~= false
+				and Montee.NextRegionNeed(opts, plan, stops, order, C, yield)
+			if type(region) == "table" and not (opts.skipped or {})["S:" .. region.key] then
+				region.tier = TIER_NEXT
+				list[#list + 1] = region
+			end
+			local mines = Montee and opts.includeMining ~= false and Montee.MineNeeds(opts, plan, stops, order, C, yield)
+			for _, m in ipairs(type(mines) == "table" and mines or {}) do
+				if not (opts.skipped or {})["S:" .. m.key] then
+					list[#list + 1] = m
+				end
+			end
+			if #list > 0 and Reroute(keptCands, list) then
+				needs = list
+			end
+		end)
+		if not ok4 then
+			stops, order, C, cost, plan.candidateSet = before4.stops, before4.order, before4.C, before4.cost, before4.set
+		end
+	end
+	-- 5e passe : la soirée (« j'ai 1 h 30 ») : ce qui rapporte le plus d'XP dans le temps, puis une auberge ;
+	-- le reste du journal passe après (rien n'est écarté).
+	if personal and opts.soiree and not opts.turninOnly then
+		local before5 = { stops = stops, order = order, C = C, cost = cost, set = plan.candidateSet }
+		local saved = {}
+		for _, q in ipairs(plan.quests or {}) do
+			saved[q] = q.tier
+		end
+		local ok5, applied = Optional(plan, "soirée", function()
+			return Planner.Soiree(opts, plan, { stops = stops, order = order, C = C }, cands, keptCands, needs, Reroute, yield)
+		end)
+		if not (ok5 and applied) then
+			for q, tier in pairs(saved) do
+				q.tier = tier
+			end
+			for _, c in ipairs(cands) do
+				c.dropped = nil
+			end
+			stops, order, C, cost, plan.candidateSet = before5.stops, before5.order, before5.C, before5.cost, before5.set
+			plan.soiree = nil
+		end
 	end
 	plan.candidates = {}
 	for _, c in ipairs(cands) do
@@ -2054,6 +2132,11 @@ function Planner.Build(opts, yield)
 				s.legSP = Geo.Estimate(from, s)
 			end
 		end
+		if s.kind == "service" and s.service.kind == "inn" and s.service.hearth and s.leg > HEARTH_CAST then
+			-- fin de soirée par la pierre de foyer : l'incantation au lieu du trajet
+			plan.travel = (plan.travel or 0) + HEARTH_CAST - s.leg
+			s.leg, s.hearth = HEARTH_CAST, { gain = 0, name = s.service.innName }
+		end
 		eta = eta + s.leg + s.work
 		s.eta = eta
 		s.levelUp = after[k].up
@@ -2077,7 +2160,7 @@ function Planner.Build(opts, yield)
 		elseif s.promoted then
 			plan.promotedCount = plan.promotedCount + 1
 		end
-		if s.kind == "service" then
+		if s.kind == "service" and s.service.kind ~= "mine" and s.service.kind ~= "inn" then
 			plan.errands = plan.errands or {}
 			plan.errands[#plan.errands + 1] = s.service
 		end
@@ -2086,7 +2169,30 @@ function Planner.Build(opts, yield)
 	end
 	local last = after[#order]
 	plan.levelEnd = last and (last.level + last.frac) or plan.level
-	if not opts.groupMode and opts.useHearth ~= false then
+	-- Soirée : l'auberge (ou la dernière étape de la soirée), le niveau à ce moment-là, ce qui vient après.
+	local soiree = plan.soiree
+	if soiree then
+		local endK = 0
+		for k, s in ipairs(plan.order) do
+			if s.tier < TIER_INN or (s.kind == "service" and s.service.kind == "inn") then
+				endK = k
+			end
+		end
+		for k, s in ipairs(plan.order) do
+			if k > endK then
+				s.afterSoiree = true
+			end
+			if s.kind == "service" and s.service.kind == "inn" then
+				soiree.innStep = k
+			end
+		end
+		local atEnd = after[endK]
+		soiree.endEta = endK > 0 and plan.order[endK].eta or 0
+		soiree.levelEnd = atEnd and (atEnd.level + atEnd.frac) or plan.level
+		soiree.afterCount = #plan.order - endK
+	end
+	if not opts.groupMode and opts.useHearth ~= false and not soiree then
+		-- (pendant une soirée, la pierre de foyer est gardée pour la fin : elle t'emmène à l'auberge)
 		Optional(plan, "pierre de foyer", function()
 			Planner.Hearth(plan, yield)
 		end)
@@ -2162,4 +2268,434 @@ function Planner.Hearth(plan, yield)
 	if best then
 		plan.bindAdvice = { name = best.name, zone = Geo.ZoneName(best.map), gain = bestGain - gain }
 	end
+end
+
+-------------------------------------------------------------------------------
+-- 7. Soirée planifiée (« j'ai 1 h 30 ») : les quêtes qui rapportent le plus d'XP dans ce temps, puis une auberge
+--    (repos 4 fois plus rapide qu'en pleine nature). Le reste du journal passe après l'auberge : rien n'est écarté.
+-------------------------------------------------------------------------------
+local SOIREE_RESERVE = 120 -- temps gardé au départ pour rejoindre l'auberge (s)
+local SOIREE_SLACK = 1.1 -- dépassement toléré avant de retirer une quête de la soirée
+local SOIREE_REGION = 600 -- la région suivante n'entre dans la soirée que s'il reste ~10 min
+local LOGOUT_WORK = 20 -- se déconnecter à l'auberge (s)
+local INN_LOOK = 4 -- aubergistes les plus proches comparés avec le vrai trajet (Shortest Path)
+
+-- Ce que rapporte chaque quête du trajet et ce qu'elle coûte : le temps gagné à la retirer (ses étapes à elle,
+-- tronçons compris) plus sa part du travail des étapes partagées.
+local function ZoneOf(s)
+	return s.map and (Geo.Zone(s.map) or s.map) or 0
+end
+
+local function QuestValues(plan, route)
+	local stops, order, C = route.stops, route.order, route.C
+	local info, list = {}, {}
+	local function Get(q)
+		local e = info[q]
+		if not e then
+			e = { q = q, xp = q.external and 0 or (q.xp or 0), time = 0, first = math.huge, zones = {} }
+			info[q] = e
+			list[#list + 1] = e
+		end
+		return e
+	end
+	local prev = 0
+	for k, idx in ipairs(order) do
+		local s = stops[idx]
+		local zone = ZoneOf(s)
+		for _, q in ipairs(s.quests) do
+			Get(q).zones[zone] = true
+		end
+		for _, q in ipairs(s.candidates or {}) do
+			Get(q).zones[zone] = true
+		end
+		local nxt = order[k + 1]
+		local saving = (C[prev][idx] or 0) + s.work
+		if nxt then
+			saving = saving + (C[idx][nxt] or 0) - (C[prev][nxt] or 0)
+		end
+		saving = math.max(s.work, saving)
+		local own, seen = {}, {}
+		for _, list2 in ipairs({ s.quests, s.candidates or {} }) do
+			for _, q in ipairs(list2) do
+				if not seen[q] then
+					seen[q] = true
+					own[#own + 1] = q
+				end
+			end
+		end
+		for _, q in ipairs(own) do
+			local e = Get(q)
+			e.first = math.min(e.first, k)
+			if #own == 1 then
+				e.time = e.time + saving
+			else
+				local work = s.kind == "pickup" and PICKUP_TIME or 0
+				for _, t in ipairs(s.tasks) do
+					if t.q == q then
+						work = work + (s.kind == "turnin" and TURNIN_TIME or Work(t.objective))
+					end
+				end
+				e.time = e.time + work + (saving - s.work) / #own
+			end
+		end
+		for _, t in ipairs(s.tasks) do
+			local o = t.objective
+			if o and o.type == "monster" and t.mobLevel and not t.q.external then
+				local left = math.max(0, (o.numRequired or 0) - (o.numFulfilled or 0))
+				local e = Get(t.q)
+				e.xp = e.xp + left * KillXP(plan.level, t.mobLevel) * KILL_XP_SHARE
+			end
+		end
+		prev = idx
+	end
+	return list
+end
+
+-- Le voyage pour aller dans une zone (et en revenir) : ce que le trajet gagne à n'y faire AUCUNE étape, moins le temps
+-- déjà compté quête par quête. Payé une fois, par le groupe de quêtes de la zone (sinon chaque quête d'une zone
+-- lointaine paraît bon marché, et toutes ensemble coûtent le voyage).
+local function ZoneEntries(route, values)
+	local stops, order, C = route.stops, route.order, route.C
+	local function Cost(skip)
+		local prev, cost = 0, 0
+		for _, idx in ipairs(order) do
+			local s = stops[idx]
+			if not (skip and ZoneOf(s) == skip) then
+				cost = cost + (C[prev][idx] or 0) + s.work
+				prev = idx
+			end
+		end
+		return cost
+	end
+	local full, entry = Cost(nil), {}
+	for _, idx in ipairs(order) do
+		local z = ZoneOf(stops[idx])
+		if not entry[z] then
+			local inside = 0
+			for _, e in ipairs(values) do
+				local has, only = false, true
+				for zz in pairs(e.zones) do
+					if zz == z then
+						has = true
+					else
+						only = false
+					end
+				end
+				if has and only then
+					inside = inside + e.time
+				end
+			end
+			entry[z] = math.max(0, full - Cost(z) - inside)
+		end
+	end
+	return entry
+end
+
+-- Les quêtes de la soirée : la meilleure XP par seconde, une quête seule dans une zone où l'on va déjà, ou un groupe
+-- de quêtes d'une nouvelle zone avec son voyage. Rend { [quête] = true }, temps prévu.
+local function SelectSoiree(values, entry, entered0, budget)
+	local chosen, entered, total = {}, {}, 0
+	for z in pairs(entered0) do
+		entered[z] = true
+	end
+	local function Fits(e)
+		for z in pairs(e.zones) do
+			if not entered[z] then
+				return false
+			end
+		end
+		return true
+	end
+	local function Take(e)
+		chosen[e.q] = true
+		total = total + e.time
+		for z in pairs(e.zones) do
+			entered[z] = true
+		end
+	end
+	local function Eligible(e)
+		return not chosen[e.q] and (e.q.candidate or e.q.tier == TIER_NOW or e.q.tier == TIER_AFTER)
+	end
+	for _, e in ipairs(values) do
+		if e.q.tier == TIER_FOCUS then
+			for z in pairs(e.zones) do
+				if not entered[z] then
+					total = total + (entry[z] or 0)
+				end
+			end
+			Take(e) -- la quête suivie est toujours de la soirée
+		end
+	end
+	while true do
+		local room = budget - total
+		local bestRatio, bestList, bestEntry
+		for _, e in ipairs(values) do
+			if Eligible(e) and Fits(e) and e.time <= room then
+				local r = e.value / math.max(30, e.time)
+				if not bestRatio or r > bestRatio then
+					bestRatio, bestList, bestEntry = r, { e }, 0
+				end
+			end
+		end
+		local seen = {}
+		for _, e in ipairs(values) do
+			if Eligible(e) and not Fits(e) then
+				local missing, count = nil, 0
+				for z in pairs(e.zones) do
+					if not entered[z] then
+						missing, count = z, count + 1
+					end
+				end
+				if count == 1 and not seen[missing] then
+					seen[missing] = true
+					local members = {}
+					for _, f in ipairs(values) do
+						if Eligible(f) and f.zones[missing] then
+							local ok = true
+							for zz in pairs(f.zones) do
+								if zz ~= missing and not entered[zz] then
+									ok = false
+								end
+							end
+							if ok then
+								members[#members + 1] = f
+							end
+						end
+					end
+					table.sort(members, function(a, b)
+						return a.value / math.max(30, a.time) > b.value / math.max(30, b.time)
+					end)
+					local cost, value, list = entry[missing] or 0, 0, {}
+					for _, f in ipairs(members) do
+						if cost + f.time <= room then
+							cost, value = cost + f.time, value + f.value
+							list[#list + 1] = f
+							local r = value / math.max(30, cost)
+							if not bestRatio or r > bestRatio then
+								bestRatio, bestEntry = r, entry[missing] or 0
+								bestList = {}
+								for i, g in ipairs(list) do
+									bestList[i] = g
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+		if not bestList then
+			break
+		end
+		total = total + bestEntry
+		for _, f in ipairs(bestList) do
+			Take(f)
+		end
+	end
+	return chosen, total
+end
+
+-- Temps jusqu'à la dernière étape de la soirée (tout ce qui passe avant l'auberge) et cette étape (ou le joueur).
+local function SessionEnd(plan, route)
+	local stops, order, C = route.stops, route.order, route.C
+	local lastK = 0
+	for k, idx in ipairs(order) do
+		if stops[idx].tier < TIER_INN then
+			lastK = k
+		end
+	end
+	local prev, eta = 0, 0
+	for k = 1, lastK do
+		local idx = order[k]
+		eta = eta + (C[prev][idx] or 0) + stops[idx].work
+		prev = idx
+	end
+	return prev > 0 and stops[prev] or plan.player, eta
+end
+
+-- Temps jusqu'à l'auberge dans le trajet `route` (nil s'il n'y en a pas).
+local function InnEta(route)
+	local stops, order, C = route.stops, route.order, route.C
+	local prev, eta = 0, 0
+	for _, idx in ipairs(order) do
+		local s = stops[idx]
+		local leg = C[prev][idx] or 0
+		if s.kind == "service" and s.service.kind == "inn" then
+			if s.service.hearth then
+				leg = math.min(leg, HEARTH_CAST)
+			end
+			return eta + leg + s.work
+		end
+		eta = eta + leg + s.work
+		prev = idx
+	end
+	return nil
+end
+
+-- L'auberge où finir : l'aubergiste le plus rapide à rejoindre depuis `from` (hors zones trop hautes), ou la pierre
+-- de foyer si elle est prête à ce moment-là et fait gagner du temps.
+local function PickInn(opts, plan, from, sessionEta, yield)
+	local speed = Geo.Speed()
+	local near = {}
+	for i, inn in ipairs(Data.TownsfolkPoints("Innkeeper", yield)) do
+		if i % 50 == 0 then
+			yield()
+		end
+		if inn.inst == from.inst and not Data.ZoneDanger(inn.map, plan.level) then
+			local walk = Geo.Walk(from, inn, speed)
+			if walk then
+				near[#near + 1] = { point = inn, cost = walk }
+			end
+		end
+	end
+	table.sort(near, function(a, b)
+		return a.cost < b.cost
+	end)
+	local best
+	for i = 1, math.min(INN_LOOK, #near) do
+		local e = near[i]
+		local cost = Geo.Estimate(from, e.point) or e.cost
+		if not best or cost < best.cost then
+			best = { point = e.point, cost = cost, name = e.point.name, zone = Geo.ZoneName(e.point.map) }
+		end
+	end
+	local hearth = opts.useHearth ~= false and Data.Hearth()
+	if hearth and hearth.point and (hearth.ready or 0) <= sessionEta + 60
+		and not Data.ZoneDanger(hearth.point.map, plan.level) and (not best or HEARTH_CAST + 30 < best.cost) then
+		return { point = hearth.point, cost = HEARTH_CAST, hearth = true, name = hearth.name,
+			zone = Geo.ZoneName(hearth.point.map) }
+	end
+	return best
+end
+
+local function InnNeed(pick)
+	local name = pick.name or (pick.hearth and "ton auberge" or "l'aubergiste")
+	local where = pick.zone and pick.zone ~= "" and (" (" .. pick.zone .. ")") or ""
+	return {
+		kind = "inn", key = "auberge", point = pick.point, tier = TIER_INN, work = LOGOUT_WORK, radius = 15,
+		hearth = pick.hearth, innName = name,
+		title = pick.hearth and ("Fin de soirée : pierre de foyer vers " .. name) or ("Fin de soirée : auberge, " .. name),
+		label = "Fin de soirée",
+		why = {
+			pick.hearth and ("Ta pierre de foyer sera prête : elle te ramène à " .. name .. where .. ". Déconnecte-toi à l'auberge.")
+				or ("Déconnecte-toi à l'auberge, chez " .. name .. where .. " : ton repos y monte 4 fois plus vite qu'en pleine nature."),
+			"Le reste de ton journal attend la prochaine soirée (étapes « après la soirée ») : rien n'est écarté.",
+		},
+	}
+end
+
+-- `route` : le trajet complet actuel. `Reroute(withCands, needs)` recalcule l'ordre (Build) avec ces étapes en plus.
+-- Rend true si la soirée est appliquée (sinon Build remet le trajet d'avant).
+function Planner.Soiree(opts, plan, route, cands, keptCands, needs, Reroute, yield)
+	local budget = math.max(0, tonumber(opts.soiree.left) or 0)
+	local prevIds = opts.prevSoiree or {}
+	local values = QuestValues(plan, route)
+	for _, e in ipairs(values) do
+		e.value = e.xp * (prevIds[e.q.id] and 1.25 or 1) -- (stabilité d'un calcul à l'autre)
+	end
+	table.sort(values, function(a, b)
+		return a.first < b.first
+	end)
+	local entry = ZoneEntries(route, values)
+	-- Zones où l'on va de toute façon : la tienne, et celles des arrêts imposés (réparer, maître, équipement…).
+	local entered = { [ZoneOf(plan.player)] = true }
+	for _, idx in ipairs(route.order) do
+		local s = route.stops[idx]
+		if s.kind == "service" and s.service.kind ~= "mine" and s.service.kind ~= "region" and s.tier < TIER_INN then
+			entered[ZoneOf(s)] = true
+		end
+	end
+	local chosen, total
+	local function Apply()
+		for _, e in ipairs(values) do
+			local q = e.q
+			if not q.candidate and (q.tier == TIER_NOW or q.tier == TIER_AFTER) then
+				q.tier = chosen[q] and TIER_NOW or TIER_AFTER
+				if not chosen[q] then
+					q.status = "après la soirée"
+				elseif q.status == "après la soirée" then
+					q.status = "sur le trajet"
+				end
+			end
+		end
+		for _, c in ipairs(cands) do
+			c.dropped = not chosen[c.q] or nil -- quête proposée qui n'entre pas dans la soirée : plus proposée
+		end
+	end
+	local base = {}
+	for _, need in ipairs(needs) do
+		if need.kind == "region" then
+			base[#base + 1] = need
+		end
+		-- (les filons sont recherchés de nouveau, près des étapes de la soirée)
+	end
+	local skipInn = (opts.skipped or {})["S:auberge"]
+	local result, pick, kept
+	local room = budget - SOIREE_RESERVE
+	for _ = 1, 3 do
+		chosen, total = SelectSoiree(values, entry, entered, room)
+		Apply()
+		for _, need in ipairs(base) do
+			need.tier = total + SOIREE_REGION <= budget and TIER_NEXT or TIER_AFTER
+		end
+		local r = Reroute(keptCands, base)
+		if not r then
+			if result then
+				chosen = kept -- (le trajet gardé est celui d'avant : on remet les quêtes comme pour lui)
+				Apply()
+			end
+			break
+		end
+		local from, eta = SessionEnd(plan, r)
+		pick = not skipInn and PickInn(opts, plan, from, eta, yield) or nil
+		local list = {}
+		for _, need in ipairs(base) do
+			list[#list + 1] = need
+		end
+		local Montee = ns.Montee
+		local mines = Montee and opts.includeMining ~= false and Montee.MineNeeds(opts, plan, r.stops, r.order, r.C, yield, TIER_INN)
+		for _, m in ipairs(type(mines) == "table" and mines or {}) do
+			if not (opts.skipped or {})["S:" .. m.key] then
+				list[#list + 1] = m
+			end
+		end
+		if pick then
+			list[#list + 1] = InnNeed(pick)
+		end
+		local r2 = Reroute(keptCands, list)
+		if not r2 and #list > #base + (pick and 1 or 0) then
+			-- sans les filons
+			list = {}
+			for _, need in ipairs(base) do
+				list[#list + 1] = need
+			end
+			if pick then
+				list[#list + 1] = InnNeed(pick)
+			end
+			r2 = Reroute(keptCands, list)
+		end
+		r2 = r2 or r
+		result, kept = r2, chosen
+		local endEta = InnEta(r2) or select(2, SessionEnd(plan, r2))
+		local over = endEta - budget * SOIREE_SLACK - 60
+		if over <= 0 or room <= 0 then
+			break
+		end
+		-- Plus long que prévu (moins d'étapes partagées qu'estimé) : on recommence avec moins de temps.
+		room = room - over
+	end
+	if not result then
+		return false
+	end
+	local ids, count = {}, 0
+	for q in pairs(chosen) do
+		ids[q.id] = true
+		count = count + 1
+	end
+	plan.soireeIds = ids
+	plan.soiree = {
+		budget = budget, untilAt = opts.soiree.untilAt, minutes = opts.soiree.minutes, chosen = count,
+		inn = pick and { name = pick.name, zone = pick.zone, hearth = pick.hearth } or nil,
+		noInn = not pick, skippedInn = skipInn and true or nil,
+	}
+	return true
 end

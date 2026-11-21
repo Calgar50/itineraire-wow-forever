@@ -1381,3 +1381,88 @@ function Data.StarterPoints(quest)
 	end
 	return points
 end
+
+-------------------------------------------------------------------------------
+-- Toutes les quêtes de la base, rangées par zone (frise de montée, région suivante)
+-------------------------------------------------------------------------------
+-- Zone (carte du jeu) d'une zone Questie (« zoneOrSort » > 0 : une zone, une sous-zone ou un donjon). nil pour un
+-- donjon ou une zone inconnue.
+function Data.ZoneOfArea(areaId)
+	if not (M and type(areaId) == "number" and areaId > 0) then
+		return nil
+	end
+	if IsDungeonArea(areaId) then
+		return nil
+	end
+	local parent = Call(M.Zone.GetParentZoneId, M.Zone, areaId)
+	if type(parent) == "number" and parent > 0 then
+		if IsDungeonArea(parent) then
+			return nil
+		end
+		areaId = parent
+	end
+	local map = Call(M.Zone.GetUiMapIdByAreaId, M.Zone, areaId)
+	return type(map) == "number" and (Geo.Zone(map) or map) or nil
+end
+
+-- XP de base d'une quête (à son niveau, sans la baisse liée au tien) ; estimation prudente sans donnée.
+function Data.BaseQuestXP(id, level)
+	local xp = M and M.XP and M.XP.GetQuestLogRewardXP and Call(M.XP.GetQuestLogRewardXP, M.XP, id, true)
+	if type(xp) == "number" and xp > 0 then
+		return xp
+	end
+	level = tonumber(level)
+	return level and level > 0 and math.floor(70 * level) or 0
+end
+
+-- Index des quêtes faisables par ta classe et ta race, par zone : { zones = { [carte] = { {id, level, req}… } },
+-- count }. Construit une fois (long : toute la base) ; `yield` le découpe sur plusieurs images. nil sans Questie.
+-- Pas les quêtes répétables, de métier, de donjon ni de raid (un donjon se compte à part).
+local questIndex
+function Data.QuestIndex(yield)
+	if questIndex then
+		return questIndex
+	end
+	local db = M and M.DB
+	local query = db and db.QueryQuestSingle
+	if type(query) ~= "function" or type(db.QuestPointers) ~= "table" then
+		return nil
+	end
+	local corrections = Data.QuestieModule("QuestieCorrections")
+	local hidden = corrections and type(corrections.hiddenQuests) == "table" and corrections.hiddenQuests or {}
+	local index, n, zoneOf = { zones = {}, count = 0 }, 0, {}
+	for id in pairs(db.QuestPointers) do
+		n = n + 1
+		if yield and n % 80 == 0 then
+			yield()
+		end
+		if type(id) == "number" and not hidden[id] then
+			local area = Call(query, id, "zoneOrSort")
+			local flags = Call(query, id, "specialFlags")
+			if type(area) == "number" and area > 0 and not (type(flags) == "number" and flags % 2 == 1)
+				and type(Call(query, id, "requiredSkill")) ~= "table"
+				and ClassOK(Call(query, id, "requiredClasses")) and RaceOK(Call(query, id, "requiredRaces")) then
+				local level = tonumber(Call(query, id, "questLevel"))
+				if level and level > 0 then
+					local zone = zoneOf[area]
+					if zone == nil then
+						zone = Data.ZoneOfArea(area) or false
+						zoneOf[area] = zone
+					end
+					if zone then
+						local list = index.zones[zone] or {}
+						index.zones[zone] = list
+						list[#list + 1] = { id = id, level = level, req = tonumber(Call(query, id, "requiredLevel")) or 1 }
+						index.count = index.count + 1
+					end
+				end
+			end
+		end
+	end
+	questIndex = index
+	return index
+end
+
+function Data.QuestIndexReady()
+	return questIndex ~= nil
+end
