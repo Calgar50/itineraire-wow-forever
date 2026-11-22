@@ -56,6 +56,11 @@ if not ns.Tri then
 	ns.triMissing = true
 	ns.Tri = Shell()
 end
+-- Sacs.lua : nouveau en 3.2.0 (vider les sacs de ce qui ne sert plus, sur demande).
+if not ns.Sacs then
+	ns.sacsMissing = true
+	ns.Sacs = Shell()
+end
 
 -- Dépôt public d'Itinéraire (paquet, installateur, nouveautés).
 ns.HOME = "github.com/Calgar50/itineraire-wow-forever"
@@ -63,6 +68,9 @@ ns.HOME = "github.com/Calgar50/itineraire-wow-forever"
 ns.INSTALLER_WANTED = 5
 -- Nouveautés affichées une fois après une mise à jour (pas de flèches Unicode : police du jeu incertaine).
 ns.NEWS = {
+	["3.2.0"] = {
+		"VIDER MES SACS (/iti sacs, ou menu … > « Vider mes sacs ») : ce qui ne te sert pas ou plus, avec la raison. Coché d'office : le gris, l'équipement lié moins bon que le tien ou que ta classe ne porte pas ; à toi de voir pour le reste (équipement pas encore lié, consommables de bas niveau, composants et recettes de métiers que tu n'as pas). « Vendre » : tout de suite chez un marchand ouvert, sinon au prochain (le trajet en ajoute un) ; rachetable chez ce marchand jusqu'à ta déconnexion. « Détruire » (2 clics) : seulement ce qui ne se vend pas. Jamais proposé : pierre de foyer, outils, objets de quête, améliorations, ce qui sert à tes métiers, sacs.",
+	},
 	["3.1.0"] = {
 		"TRIER MON JOURNAL (/iti tri, ou menu … > « Trier mon journal ») : la liste des quêtes grises (trop basses pour te rapporter de l'XP), échouées ou qui ne te rapportent presque rien, avec la raison. Tu coches, tu confirmes (2 clics), elles sont abandonnées. Gardées d'office : ta quête suivie, les quêtes de classe ou de métier, celles dont la récompense t'améliore, celles qui mènent à une suite de ton niveau. Rien n'est abandonné sans ton clic.",
 	},
@@ -576,6 +584,14 @@ local function Grouped()
 	return (IsInGroup and IsInGroup() and GetNumGroupMembers and (GetNumGroupMembers() or 0) >= 2) and true or false
 end
 
+-- Objets à vendre choisis dans « Vider mes sacs » (le trajet ajoute un marchand).
+local function PendingSales()
+	local ok, n = pcall(function()
+		return ns.Sacs.PendingCount()
+	end)
+	return ok and type(n) == "number" and n or 0
+end
+
 local function Options()
 	-- Guide d'un groupe : un trajet pour tout le monde, sans rien de personnel.
 	local guide = ns.Group and ns.Group.IsGuide()
@@ -601,6 +617,7 @@ local function Options()
 		includePickups = ns.db.includePickups,
 		includeServices = ns.db.includeServices,
 		includeMining = ns.db.includeMining ~= false,
+		forceSell = PendingSales(),
 		soiree = ns.SoireeOptions(),
 		prevSoiree = ns.plan and ns.plan.soireeIds or nil,
 		serviceDoneAt = ns.session.serviceDoneAt,
@@ -1158,7 +1175,7 @@ function ns.CheckVersions()
 	end
 	if ns.gearMissing then
 		ns.Print("nouveaux fichiers dans cette version : |cffffff00quitte et relance complètement WoW|r pour avoir l'équipement.")
-	elseif ns.djMissing or ns.autoMissing or ns.monteeMissing or ns.monteeUIMissing or ns.controleMissing or ns.triMissing then
+	elseif ns.djMissing or ns.autoMissing or ns.monteeMissing or ns.monteeUIMissing or ns.controleMissing or ns.triMissing or ns.sacsMissing then
 		ns.Print("nouveau fichier dans cette version : |cffffff00quitte et relance complètement WoW|r (un /reload ne suffit pas).")
 	end
 end
@@ -1804,6 +1821,12 @@ SlashCmdList.ITINERAIRE = function(msg)
 		else
 			ns.MonteeUI.Toggle(true, (msg == "minage" or msg == "forge" or msg:find("tiers")) and "metiers" or "frise")
 		end
+	elseif msg == "sacs" or msg == "sac" or msg == "inventaire" or msg == "vider" then
+		if ns.sacsMissing then
+			ns.Print("« Vider mes sacs » arrive avec un nouveau fichier : quitte et relance complètement WoW.")
+		else
+			ns.Sacs.Toggle(true)
+		end
 	elseif msg == "tri" or msg == "trier" or msg == "menage" or msg == "ménage" or msg == "nettoyer" then
 		if ns.triMissing then
 			ns.Print("le tri arrive avec un nouveau fichier : quitte et relance complètement WoW.")
@@ -1835,7 +1858,7 @@ SlashCmdList.ITINERAIRE = function(msg)
 			end
 		end
 	else
-		ns.Print("/iti (fenêtre) · /iti soiree [1h30 | 23h | stop] · /iti montee (frise jusqu'au 60) · /iti minage · /iti tri (ménage du journal) · /iti controle · /iti pilote · /iti talents · /iti barres · /iti equipement · /iti dj [donjon] · /iti reglages · /iti assistant · /iti rapport · /iti bandeau · /iti r (recalculer) · /iti rendus · /iti reset · /iti rythme · /iti groupe · /iti donjons · /iti etat · /iti version · /iti stop · /iti debug")
+		ns.Print("/iti (fenêtre) · /iti soiree [1h30 | 23h | stop] · /iti montee (frise jusqu'au 60) · /iti minage · /iti tri (ménage du journal) · /iti sacs (vider les sacs) · /iti controle · /iti pilote · /iti talents · /iti barres · /iti equipement · /iti dj [donjon] · /iti reglages · /iti assistant · /iti rapport · /iti bandeau · /iti r (recalculer) · /iti rendus · /iti reset · /iti rythme · /iti groupe · /iti donjons · /iti etat · /iti version · /iti stop · /iti debug")
 	end
 end
 

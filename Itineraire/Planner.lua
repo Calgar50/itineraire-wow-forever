@@ -1606,12 +1606,13 @@ function Planner.ServiceNeed(opts)
 	if opts.includeServices == false then
 		return nil
 	end
-	if opts.serviceDoneAt and GetTime() - opts.serviceDoneAt < 900 then
+	-- (`forceSell` : objets à vendre choisis dans « Vider mes sacs »)
+	if opts.serviceDoneAt and GetTime() - opts.serviceDoneAt < 900 and (opts.forceSell or 0) == 0 then
 		return nil -- on sort de chez un marchand : on n'insiste pas
 	end
 	local g = Data.GearState()
 	local repair = g.low <= 0.25 or g.avg <= 0.5
-	local sell = g.free ~= nil and g.free <= 3
+	local sell = (g.free ~= nil and g.free <= 3) or (opts.forceSell or 0) > 0
 	if not (repair or sell) then
 		return nil
 	end
@@ -1625,15 +1626,19 @@ function Planner.ServiceNeed(opts)
 		why[#why + 1] = string.format("Équipement usé : %d %% en moyenne, %d %% pour l'objet le plus abîmé.",
 			math.floor(g.avg * 100 + 0.5), math.floor(g.low * 100 + 0.5))
 	end
-	if sell then
+	local chosen = (opts.forceSell or 0) > 0 and not (g.free ~= nil and g.free <= 3)
+	if chosen then
+		why[#why + 1] = opts.forceSell .. " objet(s) à vendre, choisis dans « Vider mes sacs » (vendus tout seuls chez le marchand)."
+	elseif sell then
 		why[#why + 1] = g.free == 0 and "Sacs pleins : tu ne ramasses plus rien."
-			or ("Plus que " .. g.free .. " place(s) dans les sacs.")
+			or ("Plus que " .. tostring(g.free) .. " place(s) dans les sacs.")
 	end
 	why[#why + 1] = "Pas maintenant ? Clic droit > Passer l'étape."
 	return {
 		kind = "repair", key = urgent and "urgent" or "besoin", folk = "Repair", sp = "vendor",
 		urgent = urgent,
 		label = repair and sell and "Réparer et vendre" or repair and "Réparer"
+			or chosen and "Vendre ce qui ne sert plus"
 			or (g.free == 0 and "Vendre (sacs pleins)" or "Vendre (sacs presque pleins)"),
 		why = why,
 	}

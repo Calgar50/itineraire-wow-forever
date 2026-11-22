@@ -405,3 +405,16 @@ Notes techniques de chaque version (la plus récente en bas). Pour l'usage, voir
     (ancienne interface en repli), dans le clic du joueur ; journal relu 1,5 s après : refus du jeu signalé, la quête
     suivie jamais abandonnée. Rappel dans « À savoir » quand il y a des quêtes grises.
   - Le trajet, lui, n'écarte toujours rien tout seul. Test `tri_test.lua` (32 tests).
+- v3.2.0 (22/11/2026) : vider mes sacs (`/iti sacs`, demandé : « vider mon inventaire de tout ce qui ne sert pas ou
+  plus maintenant »).
+  - `Sacs.lua` (nouveau fichier) : `Sacs.Analyse` lit les sacs 0 à `NUM_BAG_SLOTS` (`C_Container`) ; gardés : pierre de
+    foyer et outils de métier (liste d'identifiants), objets de quête (`GetContainerItemQuestInfo`, classe 12),
+    ensembles d'équipement, améliorations (`Gear.Evaluate` gain > 0, même pas encore portables), composants des
+    recettes de TES métiers (Guildon Crafts), recettes de tes métiers, sacs. Cochés : gris, équipement lié moins bon,
+    équipement que ta classe ne porte pas (lié ou blanc). Proposés non cochés : équipement pas lié vert ou mieux,
+    équipement d'un autre rôle, consommables 15 niveaux sous toi, composants et recettes d'autres métiers.
+  - Vente : `UseContainerItem` toutes les 0,2 s chez un marchand ouvert (le gris laissé au pilote s'il vend) ; sinon
+    vente prévue (`Sacs.PendingCount` -> `opts.forceSell` -> arrêt « Vendre ce qui ne sert plus », même juste après
+    un marchand) faite à `MERCHANT_SHOW` pour ce qui est toujours jugé inutile. Destruction au 2e clic,
+    `PickupContainerItem` + `DeleteCursorItem`, seulement les objets sans valeur ; vérifiée 1 s après.
+  - Test `sacs_test.lua` (33 tests).

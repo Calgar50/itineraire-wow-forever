@@ -713,6 +713,16 @@ local function OptionsMenu()
 			end,
 		},
 		{
+			text = "Vider mes sacs : vendre ou jeter ce qui ne sert plus…",
+			func = function()
+				if ns.sacsMissing then
+					ns.Print("« Vider mes sacs » arrive avec un nouveau fichier : quitte et relance complètement WoW.")
+				else
+					ns.Sacs.Toggle(true)
+				end
+			end,
+		},
+		{
 			text = "Trier mon journal : abandonner les quêtes grises ou inutiles…",
 			func = function()
 				if ns.triMissing then

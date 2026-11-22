@@ -1,6 +1,6 @@
 ITINÉRAIRE — le trajet le plus court à travers ton journal de quêtes
 ===================================================================
-(WoW Forever, version 3.1.0 du 22/11/2026 — github.com/Calgar50/itineraire-wow-forever)
+(WoW Forever, version 3.2.0 du 22/11/2026 — github.com/Calgar50/itineraire-wow-forever)
 
 Ce paquet contient :
   - Installer-Itineraire.cmd   (l'installation en un double-clic)
@@ -185,6 +185,11 @@ CE QUE FAIT ITINÉRAIRE
   qui ne te rapportent presque rien, avec la raison. Tu coches, tu confirmes (2 clics),
   elles sont abandonnées. Gardées d'office : quête suivie, quêtes de classe ou de
   métier, récompense qui t'améliore, suite de ton niveau. Rien sans ton clic.
+- VIDER MES SACS : /iti sacs (ou menu …) = ce qui ne te sert pas ou plus, avec la
+  raison. Coché d'office : le gris, l'équipement lié moins bon que le tien. « Vendre » :
+  tout de suite chez un marchand, sinon au prochain (le trajet en ajoute un ; rachat
+  possible jusqu'à ta déconnexion). « Détruire » (2 clics) : ce qui ne se vend pas.
+  Jamais : pierre de foyer, outils, objets de quête, améliorations, tes métiers, sacs.
 - FILONS SUR LE TRAJET : avec le minage, les coins à filons qui te font monter et
   demandent moins d'une minute de détour deviennent des étapes (validées en arrivant ;
   menu … pour les couper).
@@ -277,6 +282,7 @@ Commandes :
   /iti              afficher ou cacher la fenêtre
   /iti soiree 1h30  ma soirée (ou 45, ou 23h ; /iti soiree stop pour arrêter)
   /iti montee       ma montée : frise jusqu'au 60 (/iti minage : minage et forge)
+  /iti sacs         vider mes sacs (vendre ou jeter ce qui ne sert plus)
   /iti tri          trier mon journal (abandonner les quêtes grises ou inutiles)
   /iti controle     contrôle en jeu de tout l'addon (compte rendu à copier)
   /iti pilote       pilote automatique : marche / arrêt

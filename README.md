@@ -40,6 +40,13 @@ Il ne suit pas un guide figé : le trajet se recalcule à chaque quête prise, r
   clics), elles sont abandonnées, puis le journal est relu pour vérifier. Gardées d'office : la quête suivie, les
   quêtes de classe ou de métier, celles dont la récompense t'améliore, celles qui mènent à une suite de ton niveau.
   Une quête grise terminée est proposée sans être cochée (la rendre rapporte encore un peu).
+- **Vider mes sacs** (`/iti sacs`, sur ta demande seulement) : ce qui ne te sert pas ou plus, avec la raison.
+  Coché d'office : le gris, l'équipement lié moins bon que le tien ou que ta classe ne porte pas. À toi de voir pour
+  le reste : équipement pas encore lié (hôtel des ventes ?), équipement d'un autre rôle, consommables de bas niveau,
+  composants et recettes de métiers que tu n'as pas. « Vendre » : tout de suite chez un marchand ouvert, sinon au
+  prochain (le trajet en ajoute un) ; un objet vendu se rachète chez ce marchand jusqu'à ta déconnexion.
+  « Détruire » (deux clics) : seulement ce qui ne se vend pas. Jamais proposé : pierre de foyer, outils de métier,
+  objets de quête, ensembles d'équipement, améliorations (même pour plus tard), ce qui sert à tes métiers, sacs.
 - **Le bandeau** au-dessus de la flèche : l'étape en cours, le temps restant, l'étape d'après.
 - **Ton rythme** : il apprend en jouant le temps que tu mets par monstre, par objet et par zone, et affiche des
   fourchettes de temps qui se resserrent.
@@ -152,6 +159,7 @@ suffit pour qu'elle le laisse tranquille).
 | `/iti` | afficher ou cacher la fenêtre |
 | `/iti soiree [1h30 \| 45 \| 23h \| stop]` | ma soirée : le temps que tu as (ou jusqu'à quelle heure), puis une auberge |
 | `/iti montee` | ma montée : la frise jusqu'au niveau 60 (`/iti minage` : minage et forge) |
+| `/iti sacs` | vider mes sacs : vendre ou jeter ce qui ne sert plus (tu coches, tu confirmes) |
 | `/iti tri` | trier mon journal : abandonner les quêtes grises ou inutiles (tu coches, tu confirmes) |
 | `/iti controle` | contrôle en jeu de tout l'addon, compte rendu à copier |
 | `/iti pilote` | pilote automatique : marche / arrêt |
