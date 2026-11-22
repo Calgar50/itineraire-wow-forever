@@ -506,6 +506,38 @@ function Data.ObjectiveLabel(quest, index)
 	return data.Type, name or "objectif " .. index
 end
 
+-- Objectif « objet » que le journal du jeu ne compte pas alors que l'objet est déjà dans tes sacs (vu sur Forever :
+-- « Journal de Khazgorm : 0/1 » avec le journal dans les sacs). Rend le nombre dans les sacs, l'objet et son nom,
+-- ou nil. Prudent : il faut l'objet de la base Questie, assez d'exemplaires dans les sacs (pas la banque) et son
+-- nom dans le texte de l'objectif (même objet, même rang).
+function Data.ItemsInBags(quest, index, objective)
+	if type(objective) ~= "table" or objective.type ~= "item" or objective.finished then
+		return nil
+	end
+	local need, have = tonumber(objective.numRequired), tonumber(objective.numFulfilled) or 0
+	if not need or need <= 0 or have >= need then
+		return nil
+	end
+	local data = quest and quest.ObjectiveData and quest.ObjectiveData[index]
+	local id = type(data) == "table" and data.Type == "item" and data.Id
+	if type(id) ~= "number" then
+		local live = quest and quest.Objectives and quest.Objectives[index]
+		id = type(live) == "table" and live.Type == "item" and live.Id
+	end
+	if type(id) ~= "number" then
+		return nil
+	end
+	local count = Call(C_Item and C_Item.GetItemCount or GetItemCount, id)
+	if type(count) ~= "number" or (issecretvalue and issecretvalue(count)) or count < need then
+		return nil
+	end
+	local name = Call(C_Item and C_Item.GetItemNameByID, id) or Call(GetItemInfo, id)
+	if type(name) ~= "string" or name == "" or not tostring(objective.text or ""):find(name, 1, true) then
+		return nil
+	end
+	return count, id, name
+end
+
 -- Ce qu'on chasse pour l'objectif `index` : « monster:3245 », « item:4891 »… (pour apprendre ton rythme
 -- monstre par monstre, objet par objet). `kind` = le type d'objectif du journal (l'unité mesurée : un
 -- monstre tué, un objet obtenu…). nil si la base ne le dit pas.

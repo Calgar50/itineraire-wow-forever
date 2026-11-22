@@ -309,11 +309,49 @@ function Planner.Tasks(opts, plan, yield)
 			plan.focusInLog, plan.focusTitle = true, q.title
 		end
 		q.tier = focused and TIER_FOCUS or TIER_NOW
+		-- Objet déjà dans tes sacs que le journal du jeu ne compte pas : on ne te renvoie pas le chercher (le PNJ du
+		-- rendu le prend si le serveur l'a compté). Au bout de 20 min sans mise à jour, le jeu a raison (`bagGiveUp`).
+		if not (q.failed or q.complete or q.talkOnly or q.external) then
+			local found, all = false, true
+			-- (une copie : les tables rendues par le jeu ne sont pas à nous)
+			local list = {}
+			for i, o in ipairs(q.objectives) do
+				list[i] = o
+			end
+			q.objectives = list
+			for i, original in ipairs(list) do
+				local o = original
+				if not o.finished then
+					local have, item, name = Data.ItemsInBags(quest, i, o)
+					local key = have and (q.id .. ":" .. item)
+					if key then
+						plan.bagSeen = plan.bagSeen or {}
+						plan.bagSeen[key] = true
+					end
+					if have and not (opts.bagGiveUp or {})[key] then
+						plan.inBags = plan.inBags or {}
+						plan.inBags[#plan.inBags + 1] = { id = q.id, title = q.title, key = key, name = name,
+							counted = o.numFulfilled or 0, need = o.numRequired, have = have }
+						o = {}
+						for k, v in pairs(original) do
+							o[k] = v
+						end
+						o.finished, o.inBags, found = true, have, true
+						list[i] = o
+					else
+						all = false
+					end
+				end
+			end
+			if found and all then
+				q.complete, q.inBags = true, true
+			end
+		end
 		if q.failed then
 			q.status = "échouée"
 			side.failed[#side.failed + 1] = q
 		elseif q.complete or q.talkOnly then
-			q.status = "à rendre"
+			q.status = q.inBags and "à rendre (l'objet est dans tes sacs ; le jeu ne l'a pas encore compté)" or "à rendre"
 			local points = Data.FinisherPoints(quest)
 			-- Questie ne sait pas où la rendre : repère du jeu (ou de DonData).
 			local hint = #points == 0 and not q.external and Data.QuestHint(q.id, true)

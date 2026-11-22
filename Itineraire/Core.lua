@@ -68,6 +68,10 @@ ns.HOME = "github.com/Calgar50/itineraire-wow-forever"
 ns.INSTALLER_WANTED = 5
 -- Nouveautés affichées une fois après une mise à jour (pas de flèches Unicode : police du jeu incertaine).
 ns.NEWS = {
+	["3.2.1"] = {
+		"SUIVI DES QUÊTES : quand un objet de quête est dans tes sacs mais que le jeu ne l'a pas compté (« 0/1 » alors que tu l'as), Itinéraire ne te renvoie plus le chercher : il te mène au rendu et te le dit dans le tchat (/reload ou reconnexion si le PNJ ne prend pas la quête ; au bout de 20 min, il refait confiance au jeu).",
+		"FILONS : moins de détours. Plus jamais vers l'argent (ses emplacements sont presque toujours vides), une pause de 10 min après chaque coin à filons, et le même coin gardé d'un calcul à l'autre (la flèche ne saute plus).",
+	},
 	["3.2.0"] = {
 		"VIDER MES SACS (/iti sacs, ou menu … > « Vider mes sacs ») : ce qui ne te sert pas ou plus, avec la raison. Coché d'office : le gris, l'équipement lié moins bon que le tien ou que ta classe ne porte pas ; à toi de voir pour le reste (équipement pas encore lié, consommables de bas niveau, composants et recettes de métiers que tu n'as pas). « Vendre » : tout de suite chez un marchand ouvert, sinon au prochain (le trajet en ajoute un) ; rachetable chez ce marchand jusqu'à ta déconnexion. « Détruire » (2 clics) : seulement ce qui ne se vend pas. Jamais proposé : pierre de foyer, outils, objets de quête, améliorations, ce qui sert à tes métiers, sacs.",
 	},
@@ -429,6 +433,12 @@ function ns.TrackProgress()
 	end
 end
 
+-- Après un coin à filons (visité ou passé) : pas d'autre détour de minage pendant 10 min.
+local MINE_REST = 600
+local function MineRest()
+	ns.session.mineRest = GetTime() + MINE_REST
+end
+
 -- Temps réel pour rejoindre l'étape en cours, comparé au temps prévu (trajets à pied seulement).
 local trip
 function ns.TrackTravel()
@@ -451,6 +461,7 @@ function ns.TrackTravel()
 			if service.kind == "inn" then
 				ns.SoireeEnd()
 			else
+				MineRest()
 				ns.SkipStop(s.key)
 			end
 			return
@@ -584,6 +595,62 @@ local function Grouped()
 	return (IsInGroup and IsInGroup() and GetNumGroupMembers and (GetNumGroupMembers() or 0) >= 2) and true or false
 end
 
+-- Objets déjà dans les sacs que le journal du jeu ne compte pas (`plan.inBags`) : vus depuis quand (heure réelle,
+-- gardé d'une session à l'autre). Au bout de 20 min, le trajet refait confiance au jeu.
+local BAG_TRUST = 1200
+local function BagGiveUp()
+	local seen = ns.char and ns.char.inBags
+	local now = time and time() or 0
+	local out = {}
+	for key, at in pairs(type(seen) == "table" and seen or {}) do
+		if type(at) == "number" and now - at >= BAG_TRUST then
+			out[key] = true
+		end
+	end
+	return out
+end
+
+local function NoteBags(plan)
+	ns.char.inBags = type(ns.char.inBags) == "table" and ns.char.inBags or {}
+	local seen, now = ns.char.inBags, time and time() or 0
+	for key in pairs(seen) do
+		if not (plan.bagSeen or {})[key] then
+			seen[key] = nil -- le jeu l'a compté (ou la quête n'est plus là)
+		end
+	end
+	ns.session.bagTold = ns.session.bagTold or {}
+	local trusted = {}
+	for _, e in ipairs(plan.inBags or {}) do
+		trusted[e.key] = true
+		seen[e.key] = seen[e.key] or now
+		if not ns.session.bagTold[e.key] then
+			ns.session.bagTold[e.key] = true
+			ns.Print(string.format("« %s » : %s est dans tes sacs mais le jeu compte %d/%d. Je ne te renvoie pas le "
+				.. "chercher. Si le PNJ du rendu ne prend pas la quête : /reload, sinon déconnecte-toi et reviens.",
+				tostring(e.title), tostring(e.name), e.counted or 0, e.need or 1))
+		end
+	end
+	for key in pairs(plan.bagSeen or {}) do
+		if not trusted[key] and seen[key] and now - seen[key] >= BAG_TRUST
+			and not ns.session.bagTold["late:" .. key] then
+			ns.session.bagTold["late:" .. key] = true
+			ns.Print("Un objet de tes sacs n'est toujours pas compté par le jeu après 20 min : le trajet refait "
+				.. "confiance au jeu et te renvoie le chercher (ce n'est peut-être pas le bon exemplaire).")
+		end
+	end
+end
+
+-- Coins à filons du calcul précédent (ils restent au trajet tant qu'ils valent à peu près le coup).
+local function PreviousMines()
+	local keys = {}
+	for _, s in ipairs(ns.plan and ns.plan.order or {}) do
+		if s.kind == "service" and s.service and s.service.kind == "mine" and s.service.key then
+			keys[s.service.key] = true
+		end
+	end
+	return keys
+end
+
 -- Objets à vendre choisis dans « Vider mes sacs » (le trajet ajoute un marchand).
 local function PendingSales()
 	local ok, n = pcall(function()
@@ -618,6 +685,9 @@ local function Options()
 		includeServices = ns.db.includeServices,
 		includeMining = ns.db.includeMining ~= false,
 		forceSell = PendingSales(),
+		bagGiveUp = BagGiveUp(),
+		mineRest = ns.session.mineRest,
+		prevMines = PreviousMines(),
 		soiree = ns.SoireeOptions(),
 		prevSoiree = ns.plan and ns.plan.soireeIds or nil,
 		serviceDoneAt = ns.session.serviceDoneAt,
@@ -655,6 +725,10 @@ function ns.OnPlan(plan)
 	ns.plan = plan
 	local first = plan.order[1]
 	ns.session.previous = first and first.key
+	local okBags, errBags = pcall(NoteBags, plan)
+	if not okBags then
+		OnError("objets dans les sacs : " .. tostring(errBags))
+	end
 	if ns.session.pinned then
 		local still = false
 		for _, s in ipairs(plan.order) do
@@ -858,6 +932,9 @@ function ns.SkipStop(key)
 		return
 	end
 	ns.session.skipped[key] = true
+	if tostring(key):find("^S:mine:") then
+		MineRest()
+	end
 	if ns.session.pinned == key then
 		ns.session.pinned = nil
 	end
@@ -866,7 +943,7 @@ end
 
 function ns.ResetChoices()
 	wipe(ns.session.skipped)
-	ns.session.pinned = nil
+	ns.session.pinned, ns.session.mineRest = nil, nil
 	ns.RequestPlan("reset", 0)
 end
 
@@ -1644,6 +1721,10 @@ function ns.ReportText()
 		end
 		Add("Hors trajet : " .. #(side.pvp or {}) .. " JcJ · " .. #(side.failed or {}) .. " échouées · positions inconnues : "
 			.. (#unknown > 0 and table.concat(unknown, ", ") or "aucune"))
+		for _, e in ipairs(plan.inBags or {}) do
+			Add(string.format("Dans les sacs, pas compté par le jeu : quête %s « %s » · %s (%d dans les sacs, le jeu compte %d/%d)",
+				tostring(e.id), tostring(e.title), tostring(e.name), e.have or 0, e.counted or 0, e.need or 1))
+		end
 		for _, w in ipairs(plan.warnings or {}) do
 			Add("Avertissement du calcul : " .. tostring(w))
 		end

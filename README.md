@@ -31,7 +31,12 @@ Il ne suit pas un guide figé : le trajet se recalcule à chaque quête prise, r
   recettes de forge qui font monter et ce qu'elles demandent (couleurs exactes une fois ta fenêtre de forge ouverte).
 - **Les filons sur le trajet** : avec le minage, les coins à filons utiles (2 emplacements ou plus) qui demandent moins
   de ~75 secondes de détour dans la première demi-heure du trajet deviennent des étapes (3 au plus). Un filon n'est
-  pas toujours là : l'étape se valide en arrivant. Menu … pour couper.
+  pas toujours là : l'étape se valide en arrivant, puis pas d'autre détour de minage pendant 10 min. Jamais vers
+  l'argent, l'or ni le vrai-argent (ils remplacent rarement un filon courant : emplacements presque toujours vides).
+  Le même coin reste au trajet d'un calcul à l'autre. Menu … pour couper.
+- **Objet de quête dans les sacs mais pas compté** (« 0/1 » alors que tu l'as) : Itinéraire ne te renvoie pas le
+  chercher, il te mène au rendu et te le dit dans le tchat (/reload ou reconnexion si le PNJ ne prend pas la quête).
+  Au bout de 20 min sans que le jeu le compte, il refait confiance au jeu.
 - **Contrôle en jeu** (`/iti controle`) : chaque partie de l'addon est vérifiée pour de vrai dans ton jeu (Questie,
   Shortest Path, trajet, niveau de ta zone, pierre de foyer, talents, équipement, barres, pilote, DungeonJournal,
   métiers, mise à jour automatique) ; le compte rendu, rapport complet compris, est prêt à copier-coller.

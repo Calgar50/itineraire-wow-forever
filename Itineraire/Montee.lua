@@ -17,6 +17,7 @@ local MINE_DETOUR = 75 -- détour maximum pour un coin à filons (s)
 local MINE_HORIZON = 1800 -- seulement dans la première demi-heure du trajet
 local MINE_NEAR = 250 -- un emplacement à plus de 250 m de toute étape n'est pas regardé
 local MINE_CLUSTER = 70 -- emplacements regroupés en un « coin à filons »
+local MINE_KEEP, MINE_KEEP_BONUS = 1.6, 40 -- un coin déjà au trajet : détour toléré ×1,6 et préféré (40 s)
 
 local function Call(fn, ...)
 	if type(fn) ~= "function" then
@@ -442,17 +443,18 @@ local ORES = {
 	{ key = "etain", label = "Filon d'étain", short = "étain", req = 65, ore = 2771, bar = 3576,
 		ids = { 1732, 2054, 3764, 103711, 181249 } },
 	{ key = "incendicite", label = "Filon d'incendicite", short = "incendicite", req = 65, ore = 3340, ids = { 1610, 1667 } },
-	{ key = "argent", label = "Filon d'argent", short = "argent", req = 75, ore = 2775, bar = 2842,
+	{ key = "argent", label = "Filon d'argent", short = "argent", req = 75, ore = 2775, bar = 2842, rare = true,
 		ids = { 1733, 105569, 73940 } },
 	{ key = "sanguinite", label = "Gisement de pierre de sang inférieure", short = "pierre de sang", req = 75, ore = 4278,
 		ids = { 2653 } },
 	{ key = "fer", label = "Gisement de fer", short = "fer", req = 125, ore = 2772, bar = 3575, ids = { 1735, 73939 } },
 	{ key = "indurium", label = "Filon d'indurium", short = "indurium", req = 150, ore = 5833, ids = { 19903 } },
-	{ key = "or", label = "Filon d'or", short = "or", req = 155, ore = 2776, bar = 3577, ids = { 1734, 150080, 73941, 181109 } },
+	{ key = "or", label = "Filon d'or", short = "or", req = 155, ore = 2776, bar = 3577, rare = true,
+		ids = { 1734, 150080, 73941, 181109 } },
 	{ key = "mithril", label = "Gisement de mithril", short = "mithril", req = 175, ore = 3858, bar = 3860,
 		ids = { 2040, 150079, 176645, 123310 } },
 	{ key = "vraiargent", label = "Gisement de vrai-argent", short = "vrai-argent", req = 230, ore = 7911, bar = 6037,
-		ids = { 2047, 150081, 181108, 123309 } },
+		rare = true, ids = { 2047, 150081, 181108, 123309 } },
 	{ key = "sombrefer", label = "Gisement de sombrefer", short = "sombrefer", req = 230, ore = 11370, bar = 11371,
 		ids = { 165658 } },
 	{ key = "thorium", label = "Petit filon de thorium", short = "thorium", req = 245, ore = 10620, bar = 12359,
@@ -488,11 +490,16 @@ local function Colored(color, text)
 end
 Montee.Colored = Colored
 
--- Les filons qui font monter ta compétence : orange et jaune ; à défaut, verts.
-function Montee.UsefulOres(rank)
+-- Les filons qui font monter ta compétence : orange et jaune ; à défaut, verts. `route` : seulement ceux qu'on trouve
+-- vraiment en passant (pas l'argent, l'or, le vrai-argent : ils remplacent rarement un filon courant, leurs
+-- emplacements sont presque toujours vides ou occupés par un autre filon).
+function Montee.UsefulOres(rank, route)
 	local good, green = {}, {}
 	for _, ore in ipairs(ORES) do
 		local color = Montee.OreColor(ore.req, rank)
+		if route and ore.rare then
+			color = nil
+		end
 		if color == "orange" or color == "jaune" then
 			good[#good + 1] = ore
 		elseif color == "vert" then
@@ -527,10 +534,15 @@ function Montee.MineNeeds(opts, plan, stops, order, C, yield, maxTier)
 	if not skill or (skill.rank or 0) <= 0 or ((skill.max or 0) > 0 and skill.rank >= skill.max) then
 		return nil -- pas de minage, ou compétence bloquée au maximum de ton rang (maître des mineurs)
 	end
-	local ores = Montee.UsefulOres(skill.rank)
+	-- Un coin à filons vient d'être visité (ou passé) : pas d'autre détour avant un moment (`mineRest`).
+	if opts.mineRest and GetTime() < opts.mineRest then
+		return nil
+	end
+	local ores = Montee.UsefulOres(skill.rank, true)
 	if #ores == 0 then
 		return nil
 	end
+	local previous = opts.prevMines or {}
 	local nodes = { plan.player }
 	local prev, eta = 0, 0
 	for _, idx in ipairs(order) do
@@ -579,15 +591,26 @@ function Montee.MineNeeds(opts, plan, stops, order, C, yield, maxTier)
 						end
 					end
 				end
-				if best and best <= MINE_DETOUR then
+				-- (un coin déjà au trajet le reste avec un peu plus de détour : le trajet ne change pas à chaque calcul)
+				local key = "mine:" .. ore.key .. ":" .. math.floor((cl.wx or 0) / 70) .. ":" .. math.floor((cl.wy or 0) / 70)
+				local kept = previous[key] and true or false
+				if best and best <= MINE_DETOUR * (kept and MINE_KEEP or 1) then
 					local tier = nodes[bestK].tier or 0
-					spots[#spots + 1] = { ore = ore, at = cl, detour = math.max(0, best), tier = tier, count = cl.count }
+					spots[#spots + 1] = { ore = ore, at = cl, detour = math.max(0, best), tier = tier, count = cl.count,
+						key = key, kept = kept }
 				end
 			end
 		end
 	end
+	local function Score(s)
+		return s.detour - s.count * 5 - (s.kept and MINE_KEEP_BONUS or 0)
+	end
 	table.sort(spots, function(a, b)
-		return a.detour - a.count * 5 < b.detour - b.count * 5
+		local sa, sb = Score(a), Score(b)
+		if sa ~= sb then
+			return sa < sb
+		end
+		return a.key < b.key
 	end)
 	local needs = {}
 	for _, spot in ipairs(spots) do
@@ -604,7 +627,7 @@ function Montee.MineNeeds(opts, plan, stops, order, C, yield, maxTier)
 			local color = Montee.OreColor(ore.req, skill.rank)
 			needs[#needs + 1] = {
 				kind = "mine", ore = ore.key, point = at, tier = spot.tier, work = 20, radius = 45,
-				key = "mine:" .. ore.key .. ":" .. math.floor((at.wx or 0) / 70) .. ":" .. math.floor((at.wy or 0) / 70),
+				key = spot.key,
 				title = ore.label .. " (" .. color .. ")",
 				label = "Minage",
 				why = {

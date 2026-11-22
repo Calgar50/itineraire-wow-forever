@@ -418,3 +418,14 @@ Notes techniques de chaque version (la plus récente en bas). Pour l'usage, voir
     un marchand) faite à `MERCHANT_SHOW` pour ce qui est toujours jugé inutile. Destruction au 2e clic,
     `PickupContainerItem` + `DeleteCursorItem`, seulement les objets sans valeur ; vérifiée 1 s après.
   - Test `sacs_test.lua` (33 tests).
+- v3.2.1 (22/11/2026) : suivi des quêtes (retour en jeu : « le suivi des quêtes est devenu très mauvais », capture
+  « Journal de Khazgorm : 0/1 » avec le journal dans les sacs, un équipier à 1/1).
+  - `Data.ItemsInBags` : objectif « item » non fini dont l'objet (base Questie) est dans les sacs en nombre suffisant
+    (`C_Item.GetItemCount`, sans la banque) et dont le nom est dans le texte de l'objectif. `Planner.Tasks` le tient
+    pour fait (copie des objectifs, jamais les tables du jeu), la quête passe « à rendre » si c'était le dernier ;
+    `plan.inBags` / `plan.bagSeen`. `Core` : annonce une fois par session, `ItineraireCharDB.inBags` (heure réelle),
+    confiance au jeu après 20 min (`opts.bagGiveUp`), ligne dans `/iti rapport`.
+  - Filons : plus l'argent, l'or, le vrai-argent sur le trajet (`rare`, `UsefulOres(rank, true)`) ; pause de 10 min
+    après un coin visité ou passé (`ns.session.mineRest`, levée par « réafficher ») ; coin du calcul précédent gardé
+    (`opts.prevMines` : détour toléré ×1,6, préféré de 40 s).
+  - Test `suivi_test.lua` (34 tests).
