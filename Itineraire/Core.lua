@@ -51,6 +51,11 @@ if not ns.Controle then
 	ns.controleMissing = true
 	ns.Controle = Shell()
 end
+-- Tri.lua : nouveau en 3.1.0 (faire le tri dans le journal, sur demande).
+if not ns.Tri then
+	ns.triMissing = true
+	ns.Tri = Shell()
+end
 
 -- Dépôt public d'Itinéraire (paquet, installateur, nouveautés).
 ns.HOME = "github.com/Calgar50/itineraire-wow-forever"
@@ -58,6 +63,9 @@ ns.HOME = "github.com/Calgar50/itineraire-wow-forever"
 ns.INSTALLER_WANTED = 5
 -- Nouveautés affichées une fois après une mise à jour (pas de flèches Unicode : police du jeu incertaine).
 ns.NEWS = {
+	["3.1.0"] = {
+		"TRIER MON JOURNAL (/iti tri, ou menu … > « Trier mon journal ») : la liste des quêtes grises (trop basses pour te rapporter de l'XP), échouées ou qui ne te rapportent presque rien, avec la raison. Tu coches, tu confirmes (2 clics), elles sont abandonnées. Gardées d'office : ta quête suivie, les quêtes de classe ou de métier, celles dont la récompense t'améliore, celles qui mènent à une suite de ton niveau. Rien n'est abandonné sans ton clic.",
+	},
 	["3.0.0"] = {
 		"MA SOIRÉE : dis combien de temps tu as (bouton « Zzz » en haut de la fenêtre, ou /iti soiree 1h30, /iti soiree 23h). Itinéraire garde les quêtes qui rapportent le plus d'XP dans ce temps et finit le trajet dans une auberge (repos 4 fois plus rapide ; la pierre de foyer t'y emmène si elle est prête). Le reste du journal passe après : aucune quête n'est écartée.",
 		"LA SUITE APRÈS LA RÉGION : quand ton journal se vide, une étape « Nouvelle région » t'emmène dans la zone de ton niveau qui a le plus de quêtes à prendre. Et la FRISE jusqu'au niveau 60 (bouton PARCHEMIN, ou /iti montee) : quelle zone à quel niveau, avec les donjons au bon moment.",
@@ -1150,7 +1158,7 @@ function ns.CheckVersions()
 	end
 	if ns.gearMissing then
 		ns.Print("nouveaux fichiers dans cette version : |cffffff00quitte et relance complètement WoW|r pour avoir l'équipement.")
-	elseif ns.djMissing or ns.autoMissing or ns.monteeMissing or ns.monteeUIMissing or ns.controleMissing then
+	elseif ns.djMissing or ns.autoMissing or ns.monteeMissing or ns.monteeUIMissing or ns.controleMissing or ns.triMissing then
 		ns.Print("nouveau fichier dans cette version : |cffffff00quitte et relance complètement WoW|r (un /reload ne suffit pas).")
 	end
 end
@@ -1796,6 +1804,12 @@ SlashCmdList.ITINERAIRE = function(msg)
 		else
 			ns.MonteeUI.Toggle(true, (msg == "minage" or msg == "forge" or msg:find("tiers")) and "metiers" or "frise")
 		end
+	elseif msg == "tri" or msg == "trier" or msg == "menage" or msg == "ménage" or msg == "nettoyer" then
+		if ns.triMissing then
+			ns.Print("le tri arrive avec un nouveau fichier : quitte et relance complètement WoW.")
+		else
+			ns.Tri.Toggle(true)
+		end
 	elseif msg == "controle" or msg == "contrôle" or msg == "test" or msg == "verifier" or msg == "vérifier" then
 		if ns.controleMissing then
 			ns.Print("le contrôle arrive avec un nouveau fichier : quitte et relance complètement WoW.")
@@ -1821,7 +1835,7 @@ SlashCmdList.ITINERAIRE = function(msg)
 			end
 		end
 	else
-		ns.Print("/iti (fenêtre) · /iti soiree [1h30 | 23h | stop] · /iti montee (frise jusqu'au 60) · /iti minage · /iti controle · /iti pilote · /iti talents · /iti barres · /iti equipement · /iti dj [donjon] · /iti reglages · /iti assistant · /iti rapport · /iti bandeau · /iti r (recalculer) · /iti rendus · /iti reset · /iti rythme · /iti groupe · /iti donjons · /iti etat · /iti version · /iti stop · /iti debug")
+		ns.Print("/iti (fenêtre) · /iti soiree [1h30 | 23h | stop] · /iti montee (frise jusqu'au 60) · /iti minage · /iti tri (ménage du journal) · /iti controle · /iti pilote · /iti talents · /iti barres · /iti equipement · /iti dj [donjon] · /iti reglages · /iti assistant · /iti rapport · /iti bandeau · /iti r (recalculer) · /iti rendus · /iti reset · /iti rythme · /iti groupe · /iti donjons · /iti etat · /iti version · /iti stop · /iti debug")
 	end
 end
 

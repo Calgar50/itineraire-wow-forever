@@ -38,7 +38,7 @@ Check("Fichiers de l'addon", function()
 	local missing = {}
 	for flag, file in pairs({ groupMissing = "Group.lua", gearMissing = "Gear.lua", piloteMissing = "Pilote.lua",
 		autoMissing = "Autonomie.lua", djMissing = "DungeonJournal.lua", monteeMissing = "Montee.lua",
-		monteeUIMissing = "MonteeUI.lua" }) do
+		monteeUIMissing = "MonteeUI.lua", triMissing = "Tri.lua" }) do
 		if ns[flag] then
 			missing[#missing + 1] = file
 		end

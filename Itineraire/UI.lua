@@ -713,6 +713,16 @@ local function OptionsMenu()
 			end,
 		},
 		{
+			text = "Trier mon journal : abandonner les quêtes grises ou inutiles…",
+			func = function()
+				if ns.triMissing then
+					ns.Print("le tri arrive avec un nouveau fichier : quitte et relance complètement WoW.")
+				else
+					ns.Tri.Toggle(true)
+				end
+			end,
+		},
+		{
 			text = "Contrôle en jeu : tout vérifier (compte rendu à copier)…",
 			func = function()
 				ns.Controle.Show()
@@ -1357,6 +1367,12 @@ local function AdviceText(plan)
 	if #mines > 0 then
 		lines[#lines + 1] = "|cffffd100Minage|r : coin(s) à filons à l'étape " .. table.concat(mines, ", ")
 			.. " (petit détour ; l'étape se valide en arrivant)."
+	end
+	local okGray, grays = pcall(function()
+		return ns.Tri.GrayCount(plan)
+	end)
+	if okGray and type(grays) == "number" and grays > 0 then
+		lines[#lines + 1] = "|cff999999" .. grays .. " quête(s) grise(s)|r dans ton journal (presque plus d'XP) : /iti tri pour faire le ménage."
 	end
 	if (plan.laterCount or 0) > 0 then
 		lines[#lines + 1] = "|cffff7777" .. plan.laterCount .. " étape(s) en fin de trajet|r : quêtes trop dures ou zones trop hautes pour ton niveau, gardées pour plus tard."

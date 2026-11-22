@@ -1,6 +1,6 @@
 ITINÉRAIRE — le trajet le plus court à travers ton journal de quêtes
 ===================================================================
-(WoW Forever, version 3.0.0 du 21/11/2026 — github.com/Calgar50/itineraire-wow-forever)
+(WoW Forever, version 3.1.0 du 22/11/2026 — github.com/Calgar50/itineraire-wow-forever)
 
 Ce paquet contient :
   - Installer-Itineraire.cmd   (l'installation en un double-clic)
@@ -181,6 +181,10 @@ CE QUE FAIT ITINÉRAIRE
 - MA MONTÉE : bouton parchemin (ou /iti montee) = la frise jusqu'au niveau 60 (quelle
   zone à quel niveau, les donjons au bon moment). Clic droit : minage et forge (filons
   utiles, tes minerais, recettes de forge qui font monter).
+- TRIER MON JOURNAL : /iti tri (ou menu …) = la liste des quêtes grises, échouées ou
+  qui ne te rapportent presque rien, avec la raison. Tu coches, tu confirmes (2 clics),
+  elles sont abandonnées. Gardées d'office : quête suivie, quêtes de classe ou de
+  métier, récompense qui t'améliore, suite de ton niveau. Rien sans ton clic.
 - FILONS SUR LE TRAJET : avec le minage, les coins à filons qui te font monter et
   demandent moins d'une minute de détour deviennent des étapes (validées en arrivant ;
   menu … pour les couper).
@@ -273,6 +277,7 @@ Commandes :
   /iti              afficher ou cacher la fenêtre
   /iti soiree 1h30  ma soirée (ou 45, ou 23h ; /iti soiree stop pour arrêter)
   /iti montee       ma montée : frise jusqu'au 60 (/iti minage : minage et forge)
+  /iti tri          trier mon journal (abandonner les quêtes grises ou inutiles)
   /iti controle     contrôle en jeu de tout l'addon (compte rendu à copier)
   /iti pilote       pilote automatique : marche / arrêt
   /iti talents      plan de talents suivi et prochain point

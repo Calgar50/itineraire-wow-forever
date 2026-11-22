@@ -35,6 +35,11 @@ Il ne suit pas un guide figé : le trajet se recalcule à chaque quête prise, r
 - **Contrôle en jeu** (`/iti controle`) : chaque partie de l'addon est vérifiée pour de vrai dans ton jeu (Questie,
   Shortest Path, trajet, niveau de ta zone, pierre de foyer, talents, équipement, barres, pilote, DungeonJournal,
   métiers, mise à jour automatique) ; le compte rendu, rapport complet compris, est prêt à copier-coller.
+- **Trier mon journal** (`/iti tri`, sur ta demande seulement) : la liste des quêtes grises (trop basses pour te
+  rapporter de l'XP), échouées ou qui ne te rapportent presque rien, avec la raison. Tu coches, tu confirmes (deux
+  clics), elles sont abandonnées, puis le journal est relu pour vérifier. Gardées d'office : la quête suivie, les
+  quêtes de classe ou de métier, celles dont la récompense t'améliore, celles qui mènent à une suite de ton niveau.
+  Une quête grise terminée est proposée sans être cochée (la rendre rapporte encore un peu).
 - **Le bandeau** au-dessus de la flèche : l'étape en cours, le temps restant, l'étape d'après.
 - **Ton rythme** : il apprend en jouant le temps que tu mets par monstre, par objet et par zone, et affiche des
   fourchettes de temps qui se resserrent.
@@ -147,6 +152,7 @@ suffit pour qu'elle le laisse tranquille).
 | `/iti` | afficher ou cacher la fenêtre |
 | `/iti soiree [1h30 \| 45 \| 23h \| stop]` | ma soirée : le temps que tu as (ou jusqu'à quelle heure), puis une auberge |
 | `/iti montee` | ma montée : la frise jusqu'au niveau 60 (`/iti minage` : minage et forge) |
+| `/iti tri` | trier mon journal : abandonner les quêtes grises ou inutiles (tu coches, tu confirmes) |
 | `/iti controle` | contrôle en jeu de tout l'addon, compte rendu à copier |
 | `/iti pilote` | pilote automatique : marche / arrêt |
 | `/iti talents` | plan de talents suivi et prochain point (et la question, s'il y a un point à mettre) |

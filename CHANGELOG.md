@@ -395,3 +395,13 @@ Notes techniques de chaque version (la plus récente en bas). Pour l'usage, voir
   - `MonteeUI.lua` : fenêtre « Ma montée » (frise, soirée, minage et forge). Boutons parchemin et « Zzz » dans la
     barre de titre (titre coupé si la fenêtre est étroite).
   - Tests : `soiree_test.lua`, `montee_test.lua`. 31 tests.
+- v3.1.0 (22/11/2026) : trier mon journal (`/iti tri`, demandé : « abandonne toutes celles qui sont en dessous de
+  mon niveau ou ne rapportent rien pour moi »).
+  - `Tri.lua` (nouveau fichier) : `Tri.Analyse` = quêtes grises (niveau <= `GrayLevel` Classic), échouées, ou à moins
+    de 1 % de ton niveau en XP (XP Questie pour ton niveau) ; gardées : quête suivie, classe (`requiredClasses`),
+    métier (`requiredSkill`), récompense qui t'améliore (`Gear.PlanOptions().quests`), suite (`nextQuestInChain`) pas
+    grise et pas faite. Grise terminée : proposée, pas cochée.
+  - Abandon au 2e clic (6 s pour confirmer) : `C_QuestLog.SetSelectedQuest` + `SetAbandonQuest` + `AbandonQuest`
+    (ancienne interface en repli), dans le clic du joueur ; journal relu 1,5 s après : refus du jeu signalé, la quête
+    suivie jamais abandonnée. Rappel dans « À savoir » quand il y a des quêtes grises.
+  - Le trajet, lui, n'écarte toujours rien tout seul. Test `tri_test.lua` (32 tests).

@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: Itinéraire
 ## Notes: Calcule le trajet le plus court à travers TON journal de quêtes (rendus, objectifs, donjons) et le donne à Shortest Path Forever. Conseille aussi ton équipement (récompenses, vendeurs, donjons, métiers). Pilote automatique : quêtes, vols, marchand, maître, talents, équipement, barres d'action. Soirée planifiée (le temps que tu as, puis une auberge), frise jusqu'au niveau 60, région suivante, filons de minage, contrôle en jeu.
-## Version: 3.0.0
+## Version: 3.1.0
 ## Dependencies: Questie
 ## OptionalDeps: QuestieDB, ShortestPathForever, ForeverCore, DonData, ForeverDungeonJournal
 ## X-License: GPL-3.0-or-later
@@ -33,4 +33,5 @@ Autonomie.lua
 Montee.lua
 MonteeUI.lua
 Controle.lua
+Tri.lua
 Core.lua
