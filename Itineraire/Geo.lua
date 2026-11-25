@@ -8,6 +8,29 @@ local WALK_FACTOR = 1.25 -- les chemins ne sont jamais en ligne droite
 local LONG_LEG = 120 -- au-delà (secondes à pied), on demande le vrai temps à Shortest Path
 local CROSSING = 1800 -- autre continent sans estimation : très cher
 
+-- Sans HereBeDragons (il vient avec Questie) : les mêmes deux fonctions avec l'API de cartes du jeu.
+local Native = {}
+function Native:GetWorldCoordinatesFromZone(x, y, map)
+	if not (C_Map and C_Map.GetWorldPosFromMapPos and CreateVector2D) then
+		return nil
+	end
+	local ok, instance, pos = pcall(C_Map.GetWorldPosFromMapPos, map, CreateVector2D(x, y))
+	if not (ok and instance and pos and pos.GetXY) then
+		return nil
+	end
+	local wy, wx = pos:GetXY() -- (axes du monde : comme HereBeDragons, x = est-ouest)
+	return wx, wy, instance
+end
+function Native:GetPlayerWorldPosition()
+	local map = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+	local pos = map and C_Map.GetPlayerMapPosition and C_Map.GetPlayerMapPosition(map, "player")
+	if not (pos and pos.GetXY) then
+		return nil
+	end
+	local x, y = pos:GetXY()
+	return Native:GetWorldCoordinatesFromZone(x, y, map)
+end
+
 function Geo.Init()
 	if HBD then
 		return true
@@ -20,6 +43,9 @@ function Geo.Init()
 		if ok then
 			HBD = mod
 		end
+	end
+	if not HBD and C_Map and C_Map.GetWorldPosFromMapPos then
+		HBD = Native
 	end
 	return HBD ~= nil
 end

@@ -3,7 +3,7 @@
 # Chaque sortie est gardée dans <test>.new ; un test échoue s'il s'arrête sur une erreur Lua.
 PY="$1"; T="$2"; A="$3"
 fail=0
-for t in solver_test classe_test gear_test fusion_test pilote_test scenario ui_test focus_test noop_test options_test promo_test promo_test17 pin_test propositions_test stab_test extras_test group_test robust_test region_test rythme_test v18_test dj_test auto_test auto_traits_test auto_bars_test auto_layout_test auto_layout_druid_test auto_layout_rogue_test zone_test soiree_test montee_test tri_test sacs_test suivi_test; do
+for t in solver_test classe_test gear_test fusion_test pilote_test scenario ui_test focus_test noop_test options_test promo_test promo_test17 pin_test propositions_test stab_test extras_test group_test robust_test region_test rythme_test v18_test dj_test auto_test auto_traits_test auto_bars_test auto_layout_test auto_layout_druid_test auto_layout_rogue_test zone_test soiree_test montee_test tri_test sacs_test suivi_test moteur_test; do
   if [ "$t" = solver_test ]; then extra="SOLVER_PATH=$A/Solver.lua"; else extra=""; fi
   "$PY" -I "$T/run_lua.py" "$T/$t.lua" TESTS="$T" ADDON_DIR="$A" $extra > "$T/$t.new" 2>&1
   code=$?
@@ -12,6 +12,21 @@ for t in solver_test classe_test gear_test fusion_test pilote_test scenario ui_t
     echo "ECHEC $t (code $code) : $last"; fail=1
   else
     echo "ok    $t"
+  fi
+done
+# Vraie base QuestieDB : lanceur bridé dédié ; le test sort « SKIP » si l'addon n'est pas installé.
+for t in vraiebase_test moteur_vrai_test; do
+  "$PY" -I "$T/run_lua_vraie.py" "$T/$t.lua" TESTS="$T" ADDON_DIR="$A" > "$T/$t.new" 2>&1
+  code=$?
+  last=$(tail -n 1 "$T/$t.new")
+  if [ $code -ne 0 ] || grep -q -e "LuaError" -e "Traceback" "$T/$t.new"; then
+    echo "ECHEC $t (code $code) : $last"; fail=1
+  elif [ "$last" = "OK vraie base" ] || [ "$last" = "OK moteur vrai" ]; then
+    echo "ok    $t"
+  elif [ "$last" = "SKIP vraie base absente" ]; then
+    echo "ok    $t ($last)"
+  else
+    echo "ECHEC $t (fin inattendue) : $last"; fail=1
   fi
 done
 exit $fail

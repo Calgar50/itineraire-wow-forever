@@ -19,15 +19,24 @@ tables change, voir `outils/donnees.py` : commits épinglés, empreintes SHA-256
   contributeurs, GNU GPL v3.
 - **Data from ForeverDB.net (https://foreverdb.net)**, Copyright (C) 2026 ForeverDB.net, GNU GPL v3 avec obligation
   de citer la source.
-- Itinéraire lit aussi en jeu, sans rien copier, les addons **Questie** / **QuestieDB** (GPL v3) et
-  **Shortest Path Forever** quand ils sont installés.
+- **Moteur interne** (`Itineraire/Moteur.lua`, depuis la 3.3.0) : logique adaptée de **Questie**
+  (https://github.com/Questie/Questie, GNU GPL v3) — `QuestieDB.GetQuest`, `GetNPC`, `IsDoable`, `AvailableQuests`,
+  `IsLevelRequirementsFulfilled`, `zoneDB`, `QuestieXP`, `QuestiePlayer`, `QuestieProfessions`, `QuestieReputation`,
+  `Townsfolk` et la liste des maîtres de classe de WoW Forever (`ClassTrainers`). Il lit en jeu, sans rien copier, la
+  bibliothèque publique **QuestieDB** (https://github.com/Questie/QuestieDB, GNU GPL v3).
+- `Donnees/Politique.lua` : listes reprises de **Questie** (GNU GPL v3), évaluées pour WoW Forever par
+  `outils/politique_questie.py` (version de Questie et SHA-256 des fichiers lus en tête du fichier) : quêtes jamais
+  proposées (`QuestieQuestBlacklist`, quêtes d'événements saisonniers) et étiquettes corrigées
+  (`questTagInfoCorrections`).
+- Itinéraire lit aussi en jeu, sans rien copier, l'addon **Questie** (s'il est là : réglages automatiques, quête
+  suivie, moteur de secours) et **Shortest Path Forever** quand ils sont installés.
 - Les **plans de talents** (`Autonomie.lua`) sont écrits pour Itinéraire ; les arbres de talents de Forever (noms,
   sorts, paliers, rangs) viennent de ForeverDB (https://foreverdb.net), extraits du client du jeu ; de même pour
   les postures, formes et camouflage exigés par les techniques de guerrier, druide et voleur (rangement des barres,
   `outils/postures.py`).
 - **Filons de minage** (`Montee.lua`) : la liste des identifiants d'objets « filon » (cuivre, étain, fer…) a été
-  établie à partir de la base de **QuestieDB** (GPL v3) ; leurs emplacements sont lus pendant le jeu dans Questie,
-  rien n'est copié. La frise et la région suivante lisent elles aussi la base de Questie pendant le jeu.
+  établie à partir de la base de **QuestieDB** (GPL v3) ; leurs emplacements sont lus pendant le jeu dans QuestieDB,
+  rien n'est copié. La frise et la région suivante lisent elles aussi cette base pendant le jeu.
 - **Niveaux des zones** (`Data.lua`, trajet selon ton niveau) : plages publiées par warcraft.wiki (« Zones by level
   (original) »), telles que **Shortest Path Forever** les reprend (`Data/Zones.lua`, GPL v3).
 - **DungeonJournal** (ExehnTV, https://www.curseforge.com/wow/addons/dungeonjournal), tous droits réservés à son

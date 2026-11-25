@@ -1231,7 +1231,7 @@ function UI.Create()
 
 	UI.CreateBanner()
 	UI.ApplySettings()
-	UI.SetStatus("En attente de Questie…")
+	UI.SetStatus("En attente de la base de quêtes (QuestieDB)…")
 	UI.UpdateVisibility()
 end
 

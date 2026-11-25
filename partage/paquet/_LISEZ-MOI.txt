@@ -1,6 +1,6 @@
 ITINÉRAIRE — le trajet le plus court à travers ton journal de quêtes
 ===================================================================
-(WoW Forever, version 3.2.1 du 22/11/2026 — github.com/Calgar50/itineraire-wow-forever)
+(WoW Forever, version 3.3.0 du 25/11/2026 — github.com/Calgar50/itineraire-wow-forever)
 
 Ce paquet contient :
   - Installer-Itineraire.cmd   (l'installation en un double-clic)
@@ -324,8 +324,10 @@ rien ne guide (ou bouton R).
 D'OÙ VIENNENT LES DONNÉES
 ------------------------
 
-Itinéraire lit Questie, Shortest Path Forever et DungeonJournal (ExehnTV) dans le jeu,
-et reprend les données
+Itinéraire lit la base QuestieDB, Shortest Path Forever et DungeonJournal (ExehnTV)
+dans le jeu. Depuis la 3.3.0 il a son propre moteur (logique adaptée de Questie, GPL v3) :
+Questie devient facultatif (garde-le pour ses icônes sur la carte) ; /iti moteur pour
+voir l'état. Itinéraire reprend aussi les données
 d'autres addons Forever (Dropdon, DonData, Guildon Crafts, Finddon), d'All The Things,
 de CMaNGOS et « Data from ForeverDB.net (https://foreverdb.net) ». Merci à eux !
 Licence d'Itinéraire : GNU GPL v3 (Itineraire\LICENCE.txt, détails dans TIERS.txt).

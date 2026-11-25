@@ -429,3 +429,23 @@ Notes techniques de chaque version (la plus récente en bas). Pour l'usage, voir
     après un coin visité ou passé (`ns.session.mineRest`, levée par « réafficher ») ; coin du calcul précédent gardé
     (`opts.prevMines` : détour toléré ×1,6, préféré de 40 s).
   - Test `suivi_test.lua` (34 tests).
+- v3.3.0 (25/11/2026) : notre propre moteur (demandé : « reprendre tout ce que Questie fait avant qu'ils verrouillent »,
+  issue Questie #8463 ; « que tout soit consolidé »).
+  - `Moteur.lua` (nouveau fichier) : ne lit que la bibliothèque publique QuestieDB (`LibQuestieDB`, contrat 4 vérifié par
+    `RequireContract`) ; mêmes formes que les modules de Questie qu'il remplace (`DB.GetQuest/GetNPC/GetObject/GetItem`,
+    `Query*Single`, `*Pointers`, `Zone`, `XP`, `Avail.__availableQuests`) : logique adaptée de Questie (GPL v3) —
+    `GetQuest` (ObjectiveData dans l'ordre de QuestieDB, `ObjectiveFirst`), `IsDoable` (race, classe, prérequis
+    simples et groupés, réputation, métier et rang, quête parente, suite déjà faite, exclusives, sort, pistes,
+    `availableUntilCompleted`/`availableStartingWith`), `IsLevelRequirementsFulfilled` (verte à ton niveau, niveau
+    requis, niveau max), suites des quêtes du journal, `zoneDB` (tables de QuestieDB décodées), `QuestieXP` (règles
+    cmangos), maîtres de classe de Forever, habitants des villes par drapeaux des PNJ. Liste recalculée en tâche de
+    fond (4 ms par image) à la connexion et à chaque quête prise / rendue / abandonnée, niveau, métier, réputation.
+  - `Donnees/Politique.lua` + `outils/politique_questie.py` : quêtes jamais proposées (blacklist de Questie évaluée
+    pour Forever + événements saisonniers) et étiquettes corrigées, version et SHA-256 en tête.
+  - `Data.lua` : `Data.Modules()` choisit le moteur interne (défaut, `ItineraireDB.moteur`), sinon Questie ; `Data.Engine()`.
+    Objet acheté : positions de ses marchands de ta faction. `Geo.lua` : sans HereBeDragons, `C_Map.GetWorldPosFromMapPos`.
+  - Filons : Questie vide leurs positions dans la base partagée (« GatheringNodeDisplayPolicy ») -> le moteur reprend
+    celles d'origine (`Object.GetRaw`) : les étapes de minage existent enfin en jeu.
+  - `.toc` : dépendance QuestieDB (Questie facultatif). `/iti moteur [interne|questie]`, `/iti controle` (moteur, et
+    comparaison des quêtes disponibles avec Questie quand il est là), ligne « Moteur » dans `/iti rapport`.
+  - Test `moteur_test.lua` (sans Questie du tout : règles de disponibilité, formes, zones, XP, habitants, filons, trajet).

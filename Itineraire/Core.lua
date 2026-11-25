@@ -61,6 +61,11 @@ if not ns.Sacs then
 	ns.sacsMissing = true
 	ns.Sacs = Shell()
 end
+-- Moteur.lua : nouveau en 3.3.0 (moteur interne sur QuestieDB ; sans lui, Data reprend les modules de Questie).
+if not ns.Moteur then
+	ns.moteurMissing = true
+	ns.Moteur = Shell()
+end
 
 -- Dépôt public d'Itinéraire (paquet, installateur, nouveautés).
 ns.HOME = "github.com/Calgar50/itineraire-wow-forever"
@@ -68,6 +73,10 @@ ns.HOME = "github.com/Calgar50/itineraire-wow-forever"
 ns.INSTALLER_WANTED = 5
 -- Nouveautés affichées une fois après une mise à jour (pas de flèches Unicode : police du jeu incertaine).
 ns.NEWS = {
+	["3.3.0"] = {
+		"NOTRE PROPRE MOTEUR : Itinéraire ne dépend plus des rouages internes de Questie (que son équipe veut verrouiller). Il lit seulement la base publique QuestieDB et calcule lui-même les quêtes que tu peux prendre, leurs positions, les zones, l'XP, les marchands et les aubergistes. Questie devient facultatif : garde-le pour ses icônes sur la carte, mais une mise à jour de Questie ne peut plus casser ton trajet. /iti moteur pour voir l'état (et /iti moteur questie pour revenir à l'ancien fonctionnement en secours) ; /iti controle compare les deux.",
+		"FILONS : ils apparaissent enfin vraiment sur le trajet (Questie vidait leurs positions dans la base partagée ; le moteur interne reprend celles d'origine). Toujours au plus 3, à moins d'une minute de détour, et une pause de 10 min après chacun ; menu … pour les couper.",
+	},
 	["3.2.1"] = {
 		"SUIVI DES QUÊTES : quand un objet de quête est dans tes sacs mais que le jeu ne l'a pas compté (« 0/1 » alors que tu l'as), Itinéraire ne te renvoie plus le chercher : il te mène au rendu et te le dit dans le tchat (/reload ou reconnexion si le PNJ ne prend pas la quête ; au bout de 20 min, il refait confiance au jeu).",
 		"FILONS : moins de détours. Plus jamais vers l'argent (ses emplacements sont presque toujours vides), une pause de 10 min après chaque coin à filons, et le même coin gardé d'un calcul à l'autre (la flèche ne saute plus).",
@@ -1120,7 +1129,7 @@ end
 
 function ns.StatusText()
 	if not ns.ready then
-		return "En attente de Questie…"
+		return "En attente de la base de quêtes (QuestieDB)…"
 	end
 	local parts = {}
 	if ns.session.focus then
@@ -1252,7 +1261,8 @@ function ns.CheckVersions()
 	end
 	if ns.gearMissing then
 		ns.Print("nouveaux fichiers dans cette version : |cffffff00quitte et relance complètement WoW|r pour avoir l'équipement.")
-	elseif ns.djMissing or ns.autoMissing or ns.monteeMissing or ns.monteeUIMissing or ns.controleMissing or ns.triMissing or ns.sacsMissing then
+	elseif ns.djMissing or ns.autoMissing or ns.monteeMissing or ns.monteeUIMissing or ns.controleMissing or ns.triMissing or ns.sacsMissing
+		or ns.moteurMissing then
 		ns.Print("nouveau fichier dans cette version : |cffffff00quitte et relance complètement WoW|r (un /reload ne suffit pas).")
 	end
 end
@@ -1328,7 +1338,7 @@ local function WaitForQuestie()
 			end)
 		elseif tries >= 240 then
 			ticker:Cancel()
-			ns.UI.SetStatus("Questie ne répond pas : Itinéraire a besoin de Questie et QuestieDB.")
+			ns.UI.SetStatus("La base de quêtes ne répond pas : Itinéraire a besoin de l'addon QuestieDB (activé).")
 		end
 	end)
 end
@@ -1653,7 +1663,10 @@ function ns.ReportText()
 	local okGear, gearLine = pcall(ns.Gear.ReportLine)
 	Add(okGear and gearLine or ("Équipement : " .. (ns.gearMissing and "fichiers absents (relancer WoW)" or tostring(gearLine))))
 	local api = ns.Geo.SPApi()
-	Add("État : Questie " .. (ns.ready and "prêt" or "PAS PRÊT") .. " · API Shortest Path "
+	local okMoteur, moteurLine = pcall(ns.Moteur.State)
+	Add("Moteur : " .. tostring(ns.Data.Engine() or "aucun") .. " · " .. (ns.moteurMissing and "Moteur.lua absent (relancer WoW)"
+		or (okMoteur and tostring(moteurLine) or "?")))
+	Add("État : base " .. (ns.ready and "prête" or "PAS PRÊTE") .. " · API Shortest Path "
 		.. (api and (tostring(api.version) .. "." .. tostring(api.minor or 0)) or "ABSENTE")
 		.. " · pause " .. (ns.session.paused and tostring(ns.session.pauseWhy or "oui") or "non")
 		.. " · quête suivie " .. tostring(ns.session.focus or "aucune")
@@ -1908,6 +1921,17 @@ SlashCmdList.ITINERAIRE = function(msg)
 		else
 			ns.Sacs.Toggle(true)
 		end
+	elseif msg == "moteur" or msg:match("^moteur ") then
+		-- Moteur de la base de quêtes : interne (QuestieDB seul, par défaut) ou celui de Questie (secours).
+		local want = msg:match("^moteur%s+(%S+)")
+		if want == "questie" or want == "interne" then
+			ns.db.moteur = want
+			ns.Print("moteur « " .. want .. " » choisi : tape /reload pour l'appliquer.")
+		else
+			local ok, state = pcall(ns.Moteur.State)
+			ns.Print("moteur utilisé : " .. tostring(ns.Data.Engine() or "aucun") .. " · " .. tostring(ok and state or "?")
+				.. " · /iti moteur interne | questie")
+		end
 	elseif msg == "tri" or msg == "trier" or msg == "menage" or msg == "ménage" or msg == "nettoyer" then
 		if ns.triMissing then
 			ns.Print("le tri arrive avec un nouveau fichier : quitte et relance complètement WoW.")
@@ -1939,7 +1963,7 @@ SlashCmdList.ITINERAIRE = function(msg)
 			end
 		end
 	else
-		ns.Print("/iti (fenêtre) · /iti soiree [1h30 | 23h | stop] · /iti montee (frise jusqu'au 60) · /iti minage · /iti tri (ménage du journal) · /iti sacs (vider les sacs) · /iti controle · /iti pilote · /iti talents · /iti barres · /iti equipement · /iti dj [donjon] · /iti reglages · /iti assistant · /iti rapport · /iti bandeau · /iti r (recalculer) · /iti rendus · /iti reset · /iti rythme · /iti groupe · /iti donjons · /iti etat · /iti version · /iti stop · /iti debug")
+		ns.Print("/iti (fenêtre) · /iti soiree [1h30 | 23h | stop] · /iti montee (frise jusqu'au 60) · /iti minage · /iti tri (ménage du journal) · /iti sacs (vider les sacs) · /iti controle · /iti moteur · /iti pilote · /iti talents · /iti barres · /iti equipement · /iti dj [donjon] · /iti reglages · /iti assistant · /iti rapport · /iti bandeau · /iti r (recalculer) · /iti rendus · /iti reset · /iti rythme · /iti groupe · /iti donjons · /iti etat · /iti version · /iti stop · /iti debug")
 	end
 end
 

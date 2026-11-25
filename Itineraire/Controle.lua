@@ -38,7 +38,7 @@ Check("Fichiers de l'addon", function()
 	local missing = {}
 	for flag, file in pairs({ groupMissing = "Group.lua", gearMissing = "Gear.lua", piloteMissing = "Pilote.lua",
 		autoMissing = "Autonomie.lua", djMissing = "DungeonJournal.lua", monteeMissing = "Montee.lua",
-		monteeUIMissing = "MonteeUI.lua", triMissing = "Tri.lua", sacsMissing = "Sacs.lua" }) do
+		monteeUIMissing = "MonteeUI.lua", triMissing = "Tri.lua", sacsMissing = "Sacs.lua", moteurMissing = "Moteur.lua" }) do
 		if ns[flag] then
 			missing[#missing + 1] = file
 		end
@@ -50,13 +50,59 @@ Check("Fichiers de l'addon", function()
 	return OK, "tous chargés (version " .. tostring(ns.AddonVersion and ns.AddonVersion("Itineraire") or "?") .. ")"
 end)
 
-Check("Questie", function()
+Check("Base de quêtes", function()
 	if not (ns.ready and ns.Data.Modules()) then
-		return BROKEN, "pas prêt (Itinéraire attend Questie et QuestieDB)"
+		return BROKEN, "pas prête (Itinéraire attend QuestieDB" .. (ns.Moteur.Why() and (" : " .. ns.Moteur.Why()) or "") .. ")"
 	end
 	local log = ns.Data.ReadLog()
-	return OK, string.format("prêt · Questie %s, QuestieDB %s · %d quête(s) au journal", tostring(ns.AddonVersion("Questie") or "?"),
-		tostring(ns.AddonVersion("QuestieDB") or "?"), #log)
+	local engine = ns.Data.Engine()
+	return engine == "interne" and OK or WATCH, string.format("moteur %s · QuestieDB %s · Questie %s · %d quête(s) au journal",
+		engine == "interne" and "interne (Questie facultatif)" or "de Questie (secours : /iti moteur interne)",
+		tostring(ns.AddonVersion("QuestieDB") or "?"), tostring(ns.AddonVersion("Questie") or "absent"), #log)
+end)
+
+-- Le moteur interne comparé à Questie (quand Questie est là) : mêmes quêtes disponibles ?
+Check("Moteur interne", function()
+	local M = ns.Moteur
+	if not M.Ready() then
+		return BROKEN, M.State()
+	end
+	if ns.Data.Engine() ~= "interne" then
+		return WATCH, "pas utilisé · " .. M.State()
+	end
+	if M.Busy() or not M.availAt then
+		return WATCH, M.State() .. " (relance le contrôle dans une minute)"
+	end
+	local ok, avail = pcall(function()
+		return QuestieLoader:ImportModule("AvailableQuests").__availableQuests
+	end)
+	if not (ok and type(avail) == "table") then
+		return OK, M.State()
+	end
+	local mine = M.Avail.__availableQuests
+	local both, onlyMine, onlyQuestie, examples = 0, 0, 0, {}
+	for id in pairs(mine) do
+		if avail[id] then
+			both = both + 1
+		else
+			onlyMine = onlyMine + 1
+			if #examples < 4 then
+				examples[#examples + 1] = "+" .. id
+			end
+		end
+	end
+	for id in pairs(avail) do
+		if not mine[id] then
+			onlyQuestie = onlyQuestie + 1
+			if #examples < 8 then
+				examples[#examples + 1] = "-" .. id
+			end
+		end
+	end
+	local total = both + onlyQuestie
+	local share = total > 0 and both / total or 1
+	return share >= 0.9 and OK or WATCH, string.format("%s · comparé à Questie : %d en commun, %d en plus, %d en moins%s",
+		M.State(), both, onlyMine, onlyQuestie, #examples > 0 and (" (" .. table.concat(examples, " ") .. ")") or "")
 end)
 
 Check("Base de quêtes (frise, région suivante)", function()

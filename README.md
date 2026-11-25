@@ -3,7 +3,13 @@
 Itinéraire est un addon pour **World of Warcraft Forever**. Il lit **ton** journal de quêtes, calcule l'ordre le
 plus court pour tout faire (objectifs regroupés, rendus en série, vols, bateaux, pierre de foyer) et le confie
 à la flèche de [Shortest Path Forever](https://github.com/cjber/shortest-path-forever). Il s'appuie sur la base
-de [Questie](https://github.com/Questie/Questie) pour savoir où sont les monstres, les objets et les PNJ.
+publique [QuestieDB](https://github.com/Questie/QuestieDB) pour savoir où sont les monstres, les objets et les PNJ.
+
+Depuis la 3.3.0, Itinéraire a **son propre moteur** (`Moteur.lua`) : il ne lit plus les rouages internes de
+[Questie](https://github.com/Questie/Questie), seulement la bibliothèque QuestieDB (contrat versionné), et calcule
+lui-même les quêtes que tu peux prendre, leurs positions, les zones, l'XP, les marchands et les aubergistes.
+Questie devient facultatif (garde-le pour ses icônes sur la carte). `/iti moteur questie` revient à l'ancien
+fonctionnement en secours ; `/iti controle` compare les deux moteurs.
 
 Il ne suit pas un guide figé : le trajet se recalcule à chaque quête prise, rendue ou avancée.
 
@@ -183,7 +189,7 @@ suffit pour qu'elle le laisse tranquille).
 
 ## Développement
 
-- `Itineraire/` : l'addon (Lua 5.1). `Data` (journal + Questie) → `Planner` (étapes, propositions) →
+- `Itineraire/` : l'addon (Lua 5.1). `Moteur` (base QuestieDB) → `Data` (journal + base) → `Planner` (étapes, propositions) →
   `Solver` (ordre le plus court sous contraintes) → `Guide` (Shortest Path) → `UI` / `Options` ; `Gear` /
   `GearUI` (équipement), `DungeonJournal` (lecture de l'addon DungeonJournal en jeu), `Group` (partage),
   `Pilote` (pilote automatique), `Core` (événements, calcul en tâche de fond).
@@ -206,7 +212,10 @@ suffit pour qu'elle le laisse tranquille).
 
 Itinéraire s'appuie sur le travail d'autres projets (détail et licences : `THIRD_PARTY.md`) :
 
-- [Questie](https://github.com/Questie/Questie) / QuestieDB : quêtes, PNJ, objets (lus en jeu) ;
+- [QuestieDB](https://github.com/Questie/QuestieDB) : quêtes, PNJ, objets, zones, XP (lus en jeu) ;
+- [Questie](https://github.com/Questie/Questie) : la logique du moteur interne (quêtes disponibles, zones, XP,
+  habitants des villes) est adaptée de son code (GPL v3), et ses listes de quêtes cachées et d'étiquettes sont
+  reprises (`Donnees/Politique.lua`, `outils/politique_questie.py`) ;
 - [Shortest Path Forever](https://github.com/cjber/shortest-path-forever) : la flèche et les trajets ;
 - [DungeonJournal](https://www.curseforge.com/wow/addons/dungeonjournal) (ExehnTV) : donjons, boss, butins et quêtes
   de donjon de Forever, lus en jeu avec l'accord de son auteur (rien n'est copié) ;

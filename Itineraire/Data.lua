@@ -4,20 +4,50 @@ local Data = {}
 ns.Data = Data
 local Geo = ns.Geo
 
-local M -- modules Questie
+local M -- modules de la base : moteur interne (Moteur.lua, sur QuestieDB) ou, en secours, ceux de Questie
+local engine -- « interne » ou « questie »
 
 local CLUSTER_RADIUS = 110 -- yards : points regroupés dans une même zone de chasse
 local MAX_POINTS = 600
 
-function Data.QuestieReady()
+local function QuestieStarted()
 	return type(Questie) == "table" and Questie.started == true and type(QuestieLoader) == "table"
+end
+
+-- Moteur voulu : « interne » par défaut (/iti moteur questie pour revenir à Questie, en secours).
+local function Wanted()
+	return ns.db and ns.db.moteur == "questie" and "questie" or "interne"
+end
+
+local function InternalReady()
+	return ns.Moteur and ns.Moteur.Ready() or false
+end
+
+-- La base de quêtes est-elle prête ? (nom historique : avant la 3.3, seulement Questie)
+function Data.QuestieReady()
+	if Wanted() == "interne" and InternalReady() then
+		return true
+	end
+	return QuestieStarted() or InternalReady()
+end
+
+function Data.Engine()
+	return engine
 end
 
 function Data.Modules()
 	if M then
 		return M
 	end
-	if not Data.QuestieReady() then
+	local internal = InternalReady()
+	if internal and (Wanted() == "interne" or not QuestieStarted()) then
+		M = ns.Moteur.Modules()
+		engine = M and "interne" or nil
+		if M then
+			return M
+		end
+	end
+	if not QuestieStarted() then
 		return nil
 	end
 	local ok = pcall(function()
@@ -31,6 +61,7 @@ function Data.Modules()
 	if not ok or not (M and M.DB and M.Zone) then
 		M = nil
 	end
+	engine = M and "questie" or nil
 	return M
 end
 
@@ -190,6 +221,16 @@ local function FromObjectiveData(data, points, meta)
 			end
 			for _, id in ipairs(item.objectDrops or {}) do
 				SpawnsOfObject(id, points, meta)
+			end
+			-- Objet acheté (ni butin ni objet du monde) : chez ses marchands de ta faction.
+			if #points == 0 and next(meta.dungeons) == nil then
+				for _, id in ipairs(item.vendors or {}) do
+					local npc = Call(M.DB.GetNPC, M.DB, id)
+					if npc and npc.friendly ~= false then
+						AddSpawns(npc.spawns, points, meta)
+						meta.names[#meta.names + 1] = npc.name
+					end
+				end
 			end
 		end
 	elseif data.Type == "event" and data.Coordinates then
@@ -395,6 +436,9 @@ end
 
 -- Déjà rendue par le passé (le jeu, sinon Questie).
 function Data.Completed(id)
+	if engine == "interne" then
+		return ns.Moteur.IsCompleted(id)
+	end
 	if C_QuestLog and Call(C_QuestLog.IsQuestFlaggedCompleted, id) then
 		return true
 	end
@@ -436,9 +480,20 @@ local function RaceOK(mask)
 	return ok ~= false
 end
 
--- Module Questie facultatif (QuestiePlayer, QuestieProfessions) : nil s'il manque.
+-- Module facultatif (QuestiePlayer, QuestieProfessions, QuestieCorrections) : celui du moteur interne, sinon celui de
+-- Questie ; nil s'il manque.
+local INTERNAL = { QuestiePlayer = "Player", QuestieProfessions = "Professions" }
 function Data.QuestieModule(name)
-	if not (Data.Modules() and QuestieLoader and QuestieLoader.ImportModule) then
+	if not Data.Modules() then
+		return nil
+	end
+	if engine == "interne" then
+		if name == "QuestieCorrections" then
+			return { hiddenQuests = ns.ext and ns.ext.CACHEES or {} }
+		end
+		return INTERNAL[name] and M[INTERNAL[name]] or nil
+	end
+	if not (QuestieLoader and QuestieLoader.ImportModule) then
 		return nil
 	end
 	local mod = Call(QuestieLoader.ImportModule, QuestieLoader, name)
@@ -651,6 +706,12 @@ end
 local folkCache = {}
 
 local function TownsfolkIds(kind)
+	if engine == "interne" then
+		return ns.Moteur.Townsfolk(kind)
+	end
+	if not QuestieLoader then
+		return nil
+	end
 	local ok, townsfolk = pcall(QuestieLoader.ImportModule, QuestieLoader, "Townsfolk")
 	if not ok or type(townsfolk) ~= "table" then
 		return nil
