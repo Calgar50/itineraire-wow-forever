@@ -18,7 +18,10 @@ import pathlib
 import re
 import sys
 
-import lupa
+try:
+    import lupa.lua51 as lupa  # lupa 2.x : un module par version de Lua
+except ImportError:
+    import lupa
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 OUT = ROOT / "Itineraire" / "Donnees" / "Politique.lua"

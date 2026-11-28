@@ -73,6 +73,9 @@ ns.HOME = "github.com/Calgar50/itineraire-wow-forever"
 ns.INSTALLER_WANTED = 5
 -- Nouveautés affichées une fois après une mise à jour (pas de flèches Unicode : police du jeu incertaine).
 ns.NEWS = {
+	["3.3.1"] = {
+		"Moteur interne : listes de quêtes jamais proposées et d'étiquettes (élite, donjon, JcJ) mises à jour d'après Questie 12.16 ; compatible avec QuestieDB 1.1.7 et Shortest Path 1.50.",
+	},
 	["3.3.0"] = {
 		"NOTRE PROPRE MOTEUR : Itinéraire ne dépend plus des rouages internes de Questie (que son équipe veut verrouiller). Il lit seulement la base publique QuestieDB et calcule lui-même les quêtes que tu peux prendre, leurs positions, les zones, l'XP, les marchands et les aubergistes. Questie devient facultatif : garde-le pour ses icônes sur la carte, mais une mise à jour de Questie ne peut plus casser ton trajet. /iti moteur pour voir l'état (et /iti moteur questie pour revenir à l'ancien fonctionnement en secours) ; /iti controle compare les deux.",
 		"FILONS : ils apparaissent enfin vraiment sur le trajet (Questie vidait leurs positions dans la base partagée ; le moteur interne reprend celles d'origine). Toujours au plus 3, à moins d'une minute de détour, et une pause de 10 min après chacun ; menu … pour les couper.",

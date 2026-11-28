@@ -449,3 +449,8 @@ Notes techniques de chaque version (la plus récente en bas). Pour l'usage, voir
   - `.toc` : dépendance QuestieDB (Questie facultatif). `/iti moteur [interne|questie]`, `/iti controle` (moteur, et
     comparaison des quêtes disponibles avec Questie quand il est là), ligne « Moteur » dans `/iti rapport`.
   - Test `moteur_test.lua` (sans Questie du tout : règles de disponibilité, formes, zones, XP, habitants, filons, trajet).
+- v3.3.1 (28/11/2026) : vérification des mises à jour de la semaine (« est-ce à jour ? tout est bon ? »).
+  - Questie 12.16.0 / QuestieDB 1.1.7 (contrat 5 : le moteur, écrit pour le 4, reste accepté — `RequireContract` est
+    une plage) / Shortest Path 1.50.0 (API 2.13, ajouts seulement) : tests sur la vraie base relancés, verts.
+  - `Donnees/Politique.lua` régénéré d'après Questie 12.16.0 (2682 quêtes cachées, 2847 étiquettes) ;
+    `outils/politique_questie.py` compatible lupa 2.x (`lupa.lua51`).
